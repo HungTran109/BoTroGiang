@@ -1,0 +1,247 @@
+menu "Live Stream Down Configuration"
+config ESP_ADF_GET_HTTP_ERROR_NO
+        bool "HTTP stream with error return to ESP_ADF"
+        default true
+config WIFI_SSID
+    string "WiFi SSID"
+	default "myssid"
+	help
+		SSID (network name) for the example to connect to.
+
+config WIFI_PASSWORD
+    string "WiFi Password"
+	default "mypassword"
+	help
+		WiFi password (WPA or WPA2) for the example to use.
+
+		Can be left blank if the network has no security set.
+	
+menu "4G Modem Configuration"
+	choice ESP_MODEM_DEVICE
+        prompt "Choose supported modem device (DCE)"
+        default ESP_MODEM_DEVICE_EC2x
+        help
+            Select modem device connected to the ESP DTE.
+			
+        config ESP_MODEM_DEVICE_SIM800
+            bool "SIM800"
+            help
+                SIMCom SIM800L is a GSM/GPRS module.
+                It supports Quad-band 850/900/1800/1900MHz.
+        config ESP_MODEM_DEVICE_BG96
+            bool "BG96"
+            help
+                Quectel BG96 is a series of LTE Cat M1/Cat NB1/EGPRS module.
+        config ESP_MODEM_DEVICE_EC2x
+            bool "EC2x"
+            help
+                Quectel EC2x is a series of LTE Cat M1/Cat M4/Cat M6 module.
+    endchoice
+
+    config ESP_MODEM_APN
+        string "Set Access Point Name (APN)"
+        default "CMNET"
+        help
+            Logical name which is used to select the GGSN or the external packet data network.
+
+    config ESP_MODEM_PPP_AUTH_USERNAME
+        string "Set username for authentication"
+        default "espressif"
+        help
+            Set username for PPP Authentication.
+
+    config ESP_MODEM_PPP_AUTH_PASSWORD
+        string "Set password for authentication"
+        default "esp32"
+        help
+            Set password for PPP Authentication.
+
+    config SEND_MSG
+        bool "Short message (SMS)"
+        default n
+        help
+            Select this, the modem will send a short message before power off.
+
+    if SEND_MSG
+        config SEND_MSG_PEER_PHONE_NUMBER
+            string "Peer Phone Number (with area code)"
+            default "+8610086"
+            help
+                Enter the peer phone number that you want to send message to.
+    endif
+
+    config EC200_UNLOCK_BAND
+        bool "Unlock band for EC200"
+        default false
+endmenu
+
+menu "UART Configuration"
+        config MODEM_TX_PIN
+            int "TXD Pin Number"
+            default 12
+            range 0 31
+            help
+                Pin number of UART TX.
+
+        config MODEM_RX_PIN
+            int "RXD Pin Number"
+            default 34
+            range 0 39
+            help
+                Pin number of UART RX.
+
+        config MODEM_RTS_PIN
+            int "RTS Pin Number"
+            default 27
+            help
+                Pin number of UART RTS.
+
+        config MODEM_CTS_PIN
+            int "CTS Pin Number"
+            default 23
+            help
+                Pin number of UART CTS.
+
+        config UART_EVENT_TASK_STACK_SIZE
+            int "UART Event Task Stack Size"
+            range 2000 100000
+            default 10240
+            help
+                Stack size of UART event task.
+
+        config UART_EVENT_TASK_PRIORITY
+            int "UART Event Task Priority"
+            range 3 22
+            default 5
+            help
+                Priority of UART event task.
+
+        config UART_EVENT_QUEUE_SIZE
+            int "UART Event Queue Size"
+            range 10 40
+            default 30
+            help
+                Length of UART event queue.
+
+        config UART_PATTERN_QUEUE_SIZE
+            int "UART Pattern Queue Size"
+            range 10 40
+            default 20
+            help
+                Length of UART pattern queue.
+
+        config UART_TX_BUFFER_SIZE
+            int "UART TX Buffer Size"
+            range 256 10240
+            default 10240
+            help
+                Buffer size of UART TX buffer.
+
+        config UART_RX_BUFFER_SIZE
+            int "UART RX Buffer Size"
+            range 256 100000
+            default 1024
+            help
+                Buffer size of UART RX buffer.
+    endmenu
+	
+	
+menu "Ethernet Configuration"
+	choice PHY_MODEL
+        prompt "Ethernet PHY Device"
+        default PHY_IP101
+        help
+            Select the PHY driver to use for the example.
+        config PHY_IP101
+            bool "IP101"
+            help
+                IP101 is a single port 10/100 MII/RMII/TP/Fiber Fast Ethernet Transceiver.
+                Goto http://www.icplus.com.tw/pp-IP101G.html for more information about it.
+        config PHY_TLK110
+            bool "TLK110"
+            help
+                TLK110 is an Industrial 10/100Mbps Ethernet Physical Layer Transceiver.
+                Goto http://www.ti.com/product/TLK110 for information about it.
+        config PHY_LAN8720
+            bool "LAN8720"
+            help
+                LAN8720 is a small footprint RMII 10/100 Ethernet Transceiver with HP Auto-MDIX Support.
+                Goto https://www.microchip.com/LAN8720A for more information about it.
+    endchoice
+
+    config PHY_ADDRESS
+        int "Ethernet PHY Address"
+        default 1
+        range 0 31
+        help
+            PHY Address of your PHY device. It dependens on your schematic design.
+
+    choice PHY_CLOCK_MODE
+        prompt "Ethernet PHY Clock Mode"
+        default PHY_CLOCK_GPIO0_IN
+        help
+            Select external (input on GPIO0) or internal (output on GPIO0, GPIO16 or GPIO17) RMII clock.
+        config PHY_CLOCK_GPIO0_IN
+            bool "GPIO0 Input"
+            help
+                Input of 50MHz RMII clock on GPIO0.
+        config PHY_CLOCK_GPIO0_OUT
+            bool "GPIO0 Output(READ HELP)"
+            help
+                GPIO0 can be set to output a pre-divided PLL clock (test only!).
+                Enabling this option will configure GPIO0 to output a 50MHz clock.
+                In fact this clock doesn't have directly relationship with EMAC peripheral.
+                Sometimes this clock won't work well with your PHY chip. You might need to
+                add some extra devices after GPIO0 (e.g. inverter).
+                Note that outputting RMII clock on GPIO0 is an experimental practice.
+                If you want the Ethernet to work with WiFi, don't select GPIO0 output mode for stability.
+        config PHY_CLOCK_GPIO16_OUT
+            bool "GPIO16 Output"
+            help
+                Output the internal 50MHz RMII clock on GPIO16.
+        config PHY_CLOCK_GPIO17_OUT
+            bool "GPIO17 Output (inverted)"
+            help
+                Output the internal 50MHz RMII clock on GPIO17 (inverted signal).
+    endchoice
+
+    config PHY_CLOCK_MODE
+        int
+        default 0 if PHY_CLOCK_GPIO0_IN
+        default 1 if PHY_CLOCK_GPIO0_OUT
+        default 2 if PHY_CLOCK_GPIO16_OUT
+        default 3 if PHY_CLOCK_GPIO17_OUT
+
+    config PHY_USE_POWER_PIN
+        bool "Use PHY Power (enable / disable) pin"
+        default y
+        help
+            Use a GPIO "power pin" to power the PHY on/off during operation.
+            When using GPIO0 to input RMII clock, the reset process will be interfered by this clock.
+            So we need another GPIO to control the switch on / off of the RMII clock.
+
+    if PHY_USE_POWER_PIN
+        config PHY_POWER_PIN
+            int "PHY Power GPIO"
+            default 5
+            range 0 33
+            depends on PHY_USE_POWER_PIN
+            help
+                GPIO number to use for powering on/off the PHY.
+    endif
+
+    config PHY_SMI_MDC_PIN
+        int "SMI MDC Pin Number"
+        default 23
+        range 0 33
+        help
+            GPIO number used for SMI clock signal.
+
+    config PHY_SMI_MDIO_PIN
+        int "SMI MDIO Pin Number"
+        default 18
+        range 0 33
+        help
+            GPIO number used for SMI data signal.
+	endmenu
+endmenu

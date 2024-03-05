@@ -1,0 +1,35 @@
+
+- Phiên bản
+	SL1.2 - Demo
+	SL1.3 
+		- Set thông số Wifi mặc định khi chưa được cấu hình (Wifi Bytech)
+	SL1.4 
+		- Tắt P/A khi chuyển mode Internet
+		- Bật Relay khi chạy chế độ LINE IN
+		
+	SL1.4.1
+		- Relay bật khi đang chạy từ Internet/ MIC/LINE
+		- Tắt Relays khi ngừng stream internet hoặc chuyển mode sang FM, STOP
+		- Không Lưu trạng thái điều khiển relays (IO1, IO2) khi chạy chế độ Internet/MIC/Line
+		- Mặc định khi khởi động -> Relays OFF
+		- Định kỳ check trạng thái PA,Relays nếu đang stream internet/chế độ MIC/LINE, FM, nếu đang OFF -> turn ON
+	SL 1.4.2
+		- Khi chuyển sang chế độ Internet từ web gửi lệnh cho FM về IDLE
+		
+	SL 1.5
+		- Điều chỉnh khởi động module GSM: Nếu không đọc được SIM IMEI -> Tắt nguồn, khởi động lại module
+		- Thay đổi hiển thị LED trạng thái LED1/LED2:
+			+ LED1 Đỏ: Chạy mạng WiFi
+				-> nháy ĐỎ : chưa kết nối Server
+				-> sáng ĐỎ : Đã kết nối server
+			+ LED1 Xanh: Khi vừa khởi động hoặc chạy mạng 4G
+				-> Nháy xanh : Chưa kết nối server
+				-> Sáng xanh : Đã kết nối server
+			+ LED2 Đỏ: Chạy mạng Ethernet
+				-> Nháy đỏ : chưa kết nối server
+				-> Sáng đỏ : Đã kết nối server
+		- Không xóa Nguyên nhân reset khi vừa khởi động, khi nào gửi được lên server thì xóa
+		
+	SL 1.6
+		-	Fix lỗi không nhận mạng Ethernet nếu cắm dây mạng sau khi bật nguồn
+		-	Thêm thông tin Reset counter, CSQ gửi logfile

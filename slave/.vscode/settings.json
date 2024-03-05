@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "main.h": "c",
+        "app_flash.h": "c",
+        "type_traits": "c",
+        "utilities.h": "c"
+    }
+}
