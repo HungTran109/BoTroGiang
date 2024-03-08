@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "audio_hal.h": "c",
+        "board_def.h": "c",
+        "a2dp_stream.h": "c",
+        "esp_bt.h": "c",
+        "audio_element.h": "c",
+        "esp_bt_device.h": "c",
+        "esp_bt_main.h": "c",
+        "esp_task.h": "c",
+        "nvs.h": "c",
+        "app_debug.h": "c",
+        "bt_keycontrol.h": "c"
+    }
+}

@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 #include "audio_element.h"
+//#include "a2dp_stream.h"
 
 #define APP_AUDIO_HTTP_URL_SIZE 156
 typedef enum
@@ -260,6 +261,11 @@ uint8_t app_audio_get_reset_stream_retry_number(void);
  * @brief       Start audio component
  */
 void app_audio_start(void);
+
+/**
+ * @brief       Start a2dp sink
+ */
+void start_pipeline_a2dp_sink_stream(void);
 
 /**
  * @brief       Check if http stream reader is stopped

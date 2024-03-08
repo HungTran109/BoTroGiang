@@ -22,6 +22,7 @@
 #include "ec2x.h"
 #include "app_mqtt.h"
 #include "main.h"
+#include "board_def.h"
 
 #define IDF_VERSION_BELOW_3V3       0
 #define CONFIG_ETH_PHY_IP101        1
@@ -886,9 +887,9 @@ void network_initialize(network_wifi_info_t *info, network_event_cb_t on_ip_call
     esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH();
     m_eth_netif = esp_netif_new(&cfg);
     app_eth_store_dns();
-
+#ifndef BOARD_HW_DO_NOT_USE_GSM
     xTaskCreate(ec2x_start_task, "ec2x_task", 4096, NULL, 5, NULL);
-
+#endif
 // //    char *static_ip = net_info_load_static_ethernet_ip();
 //     char *static_ip = NULL;
 //     if (static_ip != NULL)

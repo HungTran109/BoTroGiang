@@ -322,6 +322,17 @@ void app_flash_set_imei(char *imei)
     app_flash_node_nvs_write_string(APP_FLASH_GSM_IMEI_KEY, imei);
 }
 
+void app_flash_set_alt_imei(char *alt_imei)
+{
+    if (alt_imei == NULL || strcmp(m_alternative_imei, alt_imei) == 0)
+    {
+        return;
+    }
+    memset(m_alternative_imei, 0, sizeof(m_alternative_imei));
+    snprintf(m_alternative_imei, sizeof(m_alternative_imei)-1, "%s", alt_imei);
+    app_flash_node_nvs_write_string(APP_FLASH_KEY_ALTERNATIVE_IMEI, alt_imei);
+}
+
 uint32_t app_flash_get_total_reset_time(void)
 {
     return m_total_reset_time;
@@ -836,14 +847,14 @@ void app_flash_slave_nvs_read_params(char *paramName)
         switch (err)
         {
         case ESP_OK:
-            ESP_LOGD(TAG, "\tUrl mqtt header: %s", m_mqtt_server_url);
+            DEBUG_INFO("\tUrl mqtt header: %s", m_mqtt_server_url);
             break;
         case ESP_ERR_NVS_NOT_FOUND:
-            ESP_LOGD(TAG, "\tNot found mqtt Url header!");
+            DEBUG_WARN("\tNot found mqtt Url header!");
             sprintf(m_mqtt_server_url, "%s", APP_FLASH_BROKER_URL);
             break;
         default:
-            ESP_LOGE(TAG, "\rError (%s) reading!", esp_err_to_name(err));
+            DEBUG_ERROR("\rError (%s) reading!", esp_err_to_name(err));
             sprintf(m_mqtt_server_url, "%s", APP_FLASH_BROKER_URL);
             break;
         }
@@ -855,14 +866,14 @@ void app_flash_slave_nvs_read_params(char *paramName)
         switch (err)
         {
         case ESP_OK:
-            ESP_LOGD(TAG, "\tUrl mqtt username: %s", m_mqtt_server_user_name);
+            DEBUG_INFO("\tUrl mqtt username: %s", m_mqtt_server_user_name);
             break;
         case ESP_ERR_NVS_NOT_FOUND:
-            ESP_LOGD(TAG, "\tNot found mqtt username header!");
+            DEBUG_WARN("\tNot found mqtt username header!");
             sprintf(m_mqtt_server_user_name, "%s", APP_FLASH_MQTT_USERNAME);
             break;
         default:
-            ESP_LOGE(TAG, "\rError (%s) reading!", esp_err_to_name(err));
+            DEBUG_ERROR("\rError (%s) reading!", esp_err_to_name(err));
             sprintf(m_mqtt_server_user_name, "%s", APP_FLASH_MQTT_USERNAME);
             break;
         }
@@ -874,14 +885,14 @@ void app_flash_slave_nvs_read_params(char *paramName)
         switch (err)
         {
         case ESP_OK:
-            ESP_LOGD(TAG, "\tUrl mqtt username: %s", m_mqtt_server_password);
+            DEBUG_INFO("\tUrl mqtt password: %s", m_mqtt_server_password);
             break;
         case ESP_ERR_NVS_NOT_FOUND:
-            ESP_LOGD(TAG, "\tNot found mqtt username header!");
+            DEBUG_WARN("\tNot found mqtt password header!");
             sprintf(m_mqtt_server_password, "%s", APP_FLASH_MQTT_PASSWORD);
             break;
         default:
-            ESP_LOGE(TAG, "\rError (%s) reading!", esp_err_to_name(err));
+            DEBUG_ERROR("\rError (%s) reading!", esp_err_to_name(err));
             sprintf(m_mqtt_server_password, "%s", APP_FLASH_MQTT_PASSWORD);
             break;
         }

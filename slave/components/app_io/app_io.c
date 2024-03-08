@@ -27,6 +27,10 @@
 #include "driver/adc.h"
 #include "esp_adc_cal.h"
 #include "app_debug.h"
+#include "driver/i2c.h"
+#include "i2c_bus.h"
+#include "board_pins_config.h"
+#include "app_audio.h"
 
 #define ADC_NB_OF_CHANNEL 1
 #define DEFAULT_VREF 1100
@@ -43,6 +47,8 @@
 #define MCU_FM_CHIP_NAME_INDEX 1
 #define MCU_MAX_NAME_LEN 16
 #define FM_RDS_MSG_SIZE 87
+
+#define I2C_GD32_SLAVE_ADDRESS7    (uint8_t)0x44
 // #define DTMF_TIMEOUT1    7
 // #define DTMF_TIMEOUT2    7
 
@@ -87,6 +93,8 @@ static uint32_t delay_turn_on_dtmf1 = 0, delay_turn_on_dtmf2 = 0;
 static uint32_t m_dtmf_state = 0;
 static uint32_t m_dtmf_retires = 0;
 static uint8_t m_vin_lost = 0;
+
+static uint8_t button_pin_state = 0;
 
 static void process_dtmf_state(void)
 {
@@ -1137,6 +1145,37 @@ static void on_gd32_frame_callback(void *context, min_msg_t *frame)
     }
 }
 
+typedef struct {
+    i2c_config_t i2c_conf;   /*!<I2C bus parameters*/
+    i2c_port_t i2c_port;     /*!<I2C port number */
+} i2c_bus_t;
+static i2c_bus_handle_t i2c_handle = NULL;
+static esp_err_t __attribute__((unused)) i2c_master_write_slave(i2c_port_t i2c_num, uint8_t *data_wr, size_t size)
+{
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (I2C_GD32_SLAVE_ADDRESS7 << 1) | WRITE_BIT, ACK_CHECK_EN);
+    i2c_master_write(cmd, data_wr, size, ACK_CHECK_EN);
+    i2c_master_stop(cmd);
+    esp_err_t ret = i2c_master_cmd_begin(i2c_num, cmd, 5000 / portTICK_PERIOD_MS);
+    i2c_cmd_link_delete(cmd);
+    return ret;
+}
+int app_i2c_config()
+{
+    int i2c_master_port = I2C_NUM_1;
+    i2c_config_t conf = {
+        .mode = I2C_MODE_MASTER,
+        .sda_io_num = I2C_MASTER_SDA_IO,
+        .scl_io_num = I2C_MASTER_SCL_IO,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .master.clk_speed = I2C_MASTER_FREQ_HZ,
+    };
+    i2c_param_config(i2c_master_port, &conf);
+    return i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+}
+
 void app_io_initialize(void)
 {
     if (!m_sem_protect_gd32_uart)
@@ -1154,6 +1193,32 @@ void app_io_initialize(void)
     /* =================== Init Peripheral ================================ */
     //Đọc logic chân button/IO36 trước xem có đang bấm ko (Input only IO không support pull-up/down -> cần trở pullup ngoài!
     gpio_set_direction(APP_IO_BUTTON_ON_AIR_NUM, GPIO_MODE_DEF_INPUT);
+}
+
+// i2c_bus_write_bytes(i2c_handle, slave_addr, &reg_add, sizeof(reg_add), &data, sizeof(data));
+esp_err_t i2c_app_io_set (app_io_i2c_t* io_i2c)
+{
+    int ret = 0;
+    // uint8_t data_h, data_l;
+    // data_l = (uint8_t)(io_i2c->Value) & 0x00ff;
+    // data_h = (uint8_t)(io_i2c->Value >> 8) & 0x00ff;
+    // i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    // i2c_master_start(cmd);
+    // i2c_master_write_byte(cmd, I2C_GD32_SLAVE_ADDRESS7 << 1 | WRITE_BIT, ACK_CHECK_EN);
+    // i2c_master_write(cmd, io_i2c, sizeof(app_io_i2c_t), ACK_VAL);
+    // i2c_master_stop(cmd);
+    // ret = i2c_master_cmd_begin(1, cmd, 1000 / portTICK_RATE_MS);
+    // i2c_cmd_link_delete(cmd);
+    
+    // printf ("send expander io i2c\r\n");
+    // ret = i2c_bus_write_bytes(i2c_handle, I2C_GD32_SLAVE_ADDRESS7, NULL, 0, (uint8_t*)io_i2c, sizeof (app_io_i2c_t));
+    app_audio_hal_i2c_master_write(I2C_GD32_SLAVE_ADDRESS7 << 1, io_i2c, sizeof(app_io_i2c_t));
+    // uint8_t data[2];
+    // data[0] = (uint8_t)((io_i2c->Value) & 0x00ff);
+    // data[1] = (uint8_t)((io_i2c->Value >> 8) & 0x00ff);
+    // DEBUG_INFO ("DATA 0: %d\r\n DATA: 1:%d\r\n", data[0], data[1]);
+    // ret = i2c_master_write_slave(I2C_NUM_0, data, sizeof (data));
+    return ret;
 }
 
 void app_io_mcu_update_io(app_io_mcu_expander_t *gpio)
@@ -2644,4 +2709,217 @@ static bool gd32_uart_tx(void *ctx, uint8_t data)
         return false;
     }
     return true;
+}
+uint8_t get_button_state (void)
+{
+    return button_pin_state;
+}
+void set_button_state (uint8_t val)
+{
+    button_pin_state = val;
+}
+void read_button_task (void* arg)
+{
+    DEBUG_WARN ("READ BUTTON TASK IS CREATED\r\n");
+    static uint32_t cnt = 0;
+    while (1)
+    {
+        if (cnt++ > 200)
+        {
+            cnt = 0;
+            DEBUG_WARN ("READ BUTTON TASK IS running\r\n");
+        }
+        if ((!gpio_get_level(BUTTON_INPUT)) && !get_button_state())
+        {
+            
+            DEBUG_WARN ("BUTTON IS PRESSED");
+            //restart_pipeline ();
+            set_button_state (1);
+        }
+        else if (get_button_state())
+        {
+            set_button_state (0);
+        }
+        vTaskDelay(50 / portTICK_PERIOD_MS);
+    }  
+}
+void board_gpio_config (void)
+{
+    gpio_config_t io_config = {};
+    //out put no pull
+    io_config.pin_bit_mask = GPIO_INPUT_SEL;
+    io_config.mode = GPIO_MODE_INPUT;
+    io_config.intr_type = GPIO_INTR_DISABLE;
+    io_config.pull_down_en = 0;
+    io_config.pull_up_en = 1;
+    gpio_config (&io_config);
+    xTaskCreate(read_button_task, "read_button_task", 4*1024, NULL, 2, NULL);
+    // SD_card_config();
+}
+esp_err_t SD_card_config (void)
+{
+    // if (mode != SD_MODE_1_LINE) {
+    //     ESP_LOGE(TAG, "current board only support 1-line SD mode!");
+    //     return ESP_FAIL;
+    // }
+    // esp_periph_set_handle_t set;
+    // periph_sdcard_cfg_t sdcard_cfg = {
+    //     .root = "/sdcard",
+    //     .card_detect_pin = -1,//get_sdcard_intr_gpio(), // GPIO_NUM_34
+    //     .mode = SD_MODE_SPI
+    // };
+    // esp_periph_handle_t sdcard_handle = periph_sdcard_init(&sdcard_cfg);
+    // esp_periph_config_t periph_cfg = DEFAULT_ESP_PERIPH_SET_CONFIG();
+    // esp_periph_set_handle_t set = esp_periph_set_init(&periph_cfg);
+    // esp_err_t ret = esp_periph_start(set, sdcard_handle);
+    // int retry_time = 5;
+    // bool mount_flag = false;
+    // while (retry_time --) {
+    //     if (periph_sdcard_is_mounted(sdcard_handle)) {
+    //         mount_flag = true;
+    //         break;
+    //     } else {
+    //         vTaskDelay(500 / portTICK_PERIOD_MS);
+    //     }
+    // }
+    // if (mount_flag == false) {
+    //     ESP_LOGE(TAG, "Sdcard mount failed");
+    //     return ESP_FAIL;
+    // }
+    // return ESP_OK;
+     esp_err_t ret;
+    // Options for mounting the filesystem.
+    // If format_if_mount_failed is set to true, SD card will be partitioned and
+    // formatted in case when mounting fails.
+    esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+#ifdef CONFIG_EXAMPLE_FORMAT_IF_MOUNT_FAILED
+        .format_if_mount_failed = true,
+#else
+        .format_if_mount_failed = false,
+#endif // EXAMPLE_FORMAT_IF_MOUNT_FAILED
+        .max_files = 5,
+        .allocation_unit_size = 16 * 1024
+    };
+    sdmmc_card_t *card;
+    const char mount_point[] = MOUNT_POINT;
+    ESP_LOGI(TAG, "Initializing SD card");
+    // Use settings defined above to initialize SD card and mount FAT filesystem.
+    // Note: esp_vfs_fat_sdmmc/sdspi_mount is all-in-one convenience functions.
+    // Please check its source code and implement error recovery when developing
+    // production applications.
+#ifndef USE_SPI_MODE
+    ESP_LOGI(TAG, "Using SDMMC peripheral");
+    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+    // This initializes the slot without card detect (CD) and write protect (WP) signals.
+    // Modify slot_config.gpio_cd and slot_config.gpio_wp if your board has these signals.
+    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+    // To use 1-line SD mode, uncomment the following line:
+    // slot_config.width = 1;
+    // GPIOs 15, 2, 4, 12, 13 should have external 10k pull-ups.
+    // Internal pull-ups are not sufficient. However, enabling internal pull-ups
+    // does make a difference some boards, so we do that here.
+    gpio_set_pull_mode(15, GPIO_PULLUP_ONLY);   // CMD, needed in 4- and 1- line modes
+    gpio_set_pull_mode(2, GPIO_PULLUP_ONLY);    // D0, needed in 4- and 1-line modes
+    gpio_set_pull_mode(4, GPIO_PULLUP_ONLY);    // D1, needed in 4-line mode only
+    gpio_set_pull_mode(12, GPIO_PULLUP_ONLY);   // D2, needed in 4-line mode only
+    gpio_set_pull_mode(13, GPIO_PULLUP_ONLY);   // D3, needed in 4- and 1-line modes
+    ESP_LOGI(TAG, "Mounting filesystem");
+    ret = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &card);
+#else
+    ESP_LOGI(TAG, "Using SPI peripheral");
+    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+    //host.max_freq_khz = 1000;
+    spi_bus_config_t bus_cfg = {
+        .mosi_io_num = PIN_NUM_MOSI,
+        .miso_io_num = PIN_NUM_MISO,
+        .sclk_io_num = PIN_NUM_CLK,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+        .max_transfer_sz = 4000,
+    };
+    ret = spi_bus_initialize(host.slot, &bus_cfg, SPI_DMA_CHAN);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize bus.");
+        return;
+    }
+    gpio_config_t io_config = {};
+    //out put no pull
+    // io_config.pin_bit_mask = GPIO_OUTPUT_SEL;
+    // io_config.mode = GPIO_MODE_OUTPUT;
+    // io_config.intr_type = GPIO_INTR_DISABLE;
+    // io_config.pull_down_en = 0;
+    // io_config.pull_up_en = 1;
+    // gpio_config (&io_config);
+    // io_config.pin_bit_mask = GPIO_INPUT_SEL;
+    // io_config.mode = GPIO_MODE_INPUT;
+    // io_config.intr_type = GPIO_INTR_DISABLE;
+    // io_config.pull_down_en = 0;
+    // io_config.pull_up_en = 0;
+    // gpio_config (&io_config);
+    // This initializes the slot without card detect (CD) and write protect (WP) signals.
+    // Modify slot_config.gpio_cd and slot_config.gpio_wp if your board has these signals.
+    sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
+    slot_config.gpio_cs = PIN_NUM_CS;
+    slot_config.host_id = host.slot;
+    ret = esp_vfs_fat_sdspi_mount(mount_point, &host, &slot_config, &mount_config, &card);
+#endif //USE_SPI_MODE
+        if (ret != ESP_OK) {
+        if (ret == ESP_FAIL) {
+            ESP_LOGE(TAG, "Failed to mount filesystem. "
+                     "If you want the card to be formatted, set the EXAMPLE_FORMAT_IF_MOUNT_FAILED menuconfig option.");
+        } else {
+            ESP_LOGE(TAG, "Failed to initialize the card (%s). "
+                     "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
+        }
+        return;
+    }
+    ESP_LOGI(TAG, "Filesystem mounted");
+    // Card has been initialized, print its properties
+    sdmmc_card_print_info(stdout, card);
+    // Use POSIX and C standard library functions to work with files.
+    // First create a file.
+    ESP_LOGI(TAG, "Opening file");
+    FILE *f = fopen(MOUNT_POINT"/hello.txt", "w");
+    if (f == NULL) {
+        ESP_LOGE(TAG, "Failed to open file for writing");
+        return;
+    }
+    fprintf(f, "Hello %s!\n", card->cid.name);
+    fclose(f);
+    ESP_LOGI(TAG, "File written");
+    // Check if destination file exists before renaming
+    struct stat st;
+    if (stat(MOUNT_POINT"/foo.txt", &st) == 0) {
+        // Delete it if it exists
+        unlink(MOUNT_POINT"/foo.txt");
+    }
+    // Rename original file
+    ESP_LOGI(TAG, "Renaming file");
+    if (rename(MOUNT_POINT"/hello.txt", MOUNT_POINT"/foo.txt") != 0) {
+        ESP_LOGE(TAG, "Rename failed");
+        return;
+    }
+    // Open renamed file for reading
+    ESP_LOGI(TAG, "Reading file");
+    f = fopen(MOUNT_POINT"/foo.txt", "r");
+    if (f == NULL) {
+        ESP_LOGE(TAG, "Failed to open file for reading");
+        return;
+    }
+    char line[64];
+    fgets(line, sizeof(line), f);
+    fclose(f);
+    // strip newline
+    char *pos = strchr(line, '\n');
+    if (pos) {
+        *pos = '\0';
+    }
+    ESP_LOGI(TAG, "Read from file: '%s'", line);
+    // // All done, unmount partition and disable SDMMC or SPI peripheral
+    // esp_vfs_fat_sdcard_unmount(mount_point, card);
+    // ESP_LOGI(TAG, "Card unmounted");
+#ifdef USE_SPI_MODE
+    //deinitialize the bus after all devices are removed
+    // spi_bus_free(host.slot);
+#endif
 }

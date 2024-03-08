@@ -10,7 +10,7 @@
 #define DEBUG_LEVEL_WARN                3
 #define DEBUG_LEVEL_ERROR               4
 #define DEBUG_LEVEL_NOTHING             5
-#define DEBUG_LEVEL                     DEBUG_LEVEL_WARN  
+#define DEBUG_LEVEL                     DEBUG_LEVEL_VERBOSE  
 
 #ifndef DEBUG_ISR_ENABLE
 #define DEBUG_ISR_ENABLE                0       // allow debug inside interrupt service

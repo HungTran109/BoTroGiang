@@ -518,6 +518,11 @@ void app_flash_set_last_streaming_url(char *url);
  * @retval              alternative imei
  */
 char *app_flash_get_alt_imei(void);
+/**
+ * @brief               Set alternative imei
+ * @param[in]           alternative imei
+ */
+void app_flash_set_alt_imei(char *alt_imei);
 
 /**
  * @brief               Set GSM imei

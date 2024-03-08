@@ -663,6 +663,34 @@ void slave_report_info_now(void)
     m_mqtt_send_heartbeat_counter = HEARTBEAT_INTERVAL;
 }
 
+void set_PA_state (app_io_i2c_t* info_to_send, uint8_t state)
+{
+    esp_err_t ret = ESP_OK;
+    if (state)
+    {
+        info_to_send->BitName.LED_BLE = 1;
+        info_to_send->BitName.LED_AUX = 1;
+        info_to_send->BitName.LED_SDCARD = 1;
+        info_to_send->BitName.LED_DEBUG = 1;
+        info_to_send->BitName.LED_INTERNET = 1;
+        info_to_send->BitName.LED_STREAM = 1;
+    }
+    else
+    {
+        info_to_send->BitName.LED_BLE = 0;
+        info_to_send->BitName.LED_AUX = 0;
+        info_to_send->BitName.LED_SDCARD = 0;
+        info_to_send->BitName.LED_DEBUG = 0;
+        info_to_send->BitName.LED_INTERNET = 0;
+        info_to_send->BitName.LED_STREAM = 0;
+    }
+    ret = i2c_app_io_set (info_to_send);
+    if (ret != ESP_OK)
+    {
+        DEBUG_ERROR ("SEND IO STATE THROUGH I2C FAIL:%x\r\n", ret);
+    }
+}
+
 /******************************************************************************************/
 /**
  * @brief   : task quản lý hoạt động của module gsm
@@ -675,6 +703,7 @@ static void main_manager_task(void *arg)
 {
     uint8_t mqtt_tick_counter = 0;
     uint8_t task_timeout10s = 0;
+    uint8_t task_timeout15s = 0;
     //	uint8_t task_tick3s = 0;
 
     uint8_t last_stream_state = 0;
@@ -963,6 +992,31 @@ static void main_manager_task(void *arg)
                     slave_process_stop_onair();
                 }
                 m_http_received_data_timeout = 0;
+            }
+        }
+
+        if (++task_timeout15s >= 60)
+        {
+            task_timeout15s = 45;
+            if (strlen(app_flash_get_imei()) < 15)
+            {
+                /* Get Unique ID */
+                uint8_t uid[6];
+                err = esp_efuse_mac_get_default(uid);
+                if (err == ESP_OK)
+                {
+                    char mac_string[16];
+                    DEBUG_INFO("[ZIG] MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", 
+                            uid[0], uid[1], uid[2], 
+                            uid[3], uid[4], uid[5]);
+                    sprintf (mac_string, "%02X%02X%02X%02X%02X%02XMAC", uid[0], uid[1], uid[2], 
+                            uid[3], uid[4], uid[5]);
+                    app_flash_set_alt_imei(mac_string);
+                }
+                else
+                {
+                    DEBUG_WARN("[ZIG] MAC: ERROR\r\n");
+                }
             }
         }
 
@@ -1472,6 +1526,10 @@ static void main_manager_task(void *arg)
                 DEBUG_INFO("--> windows = 0, auto stop opto in = 15s\r\n");
             }
         }
+        static bool logic_test = false;
+        app_io_i2c_t test;
+        set_PA_state (&test, logic_test);
+        logic_test = !logic_test;
 
         vTaskDelay(1000 / portTICK_RATE_MS);
     }
@@ -3515,7 +3573,7 @@ static void live_streaming_down_task(void *arg)
         /* Sau khi có mạng chờ vài giây cho ổn định rồi mới connect */
         if (delay_stream_after_network_connected)
         {
-            DEBUG_VERBOSE(TAG,  "Delay after network connected: %us\r\n", 
+            DEBUG_VERBOSE("Delay after network connected: %us\r\n", 
                         delay_stream_after_network_connected);
             delay_stream_after_network_connected--;
             vTaskDelay(1000 / portTICK_RATE_MS);
@@ -3797,6 +3855,7 @@ void app_main(void)
     /* =========================== Init GPIO ============================== */
     // Khởi tạo GPIO & Timer luôn để reset watchdog, nếu k reset kịp sẽ bị wdg reset!
     app_io_initialize();
+    board_gpio_config();
 
     /* Timer xử lý các tác vụ phụ */
     TimerHandle_t timer = xTimerCreate("system_timer", 10 / portTICK_RATE_MS, true, NULL, xSystem_timercb);
@@ -4017,23 +4076,16 @@ void app_main(void)
     err = esp_efuse_mac_get_default(uid);
     if (err == ESP_OK)
     {
-        char mac_string[13];
-        //		ESP_LOGI*TAG,  "ESP unique MAC: %02X:%02X:%02X:%02X:%02X:%02X", uid[0],
-        //			uid[1], uid[2], uid[3],
-        //			uid[4], uid[5]);
-
+        char mac_string[16];
         DEBUG_INFO("[ZIG] MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", 
                 uid[0], uid[1], uid[2], 
                 uid[3], uid[4], uid[5]);
-        sprintf (mac_string, "%02X%02X%02X%02X%02X%02X", uid[0], uid[1], uid[2], 
+        sprintf (mac_string, "%02X%02X%02X%02X%02X%02XMAC", uid[0], uid[1], uid[2], 
                 uid[3], uid[4], uid[5]);
-#warning "mac string haven't write into flash "
-        DEBUG_ERROR("[ZIG] MAC: %s\r\n", mac_string);
-        // app_flash_set_imei(mac_string);
     }
     else
     {
-        DEBUG_WARN("[ZIG] MAC: ERROR\r\n");
+        DEBUG_WARN("[ZIG] MAC: ERROR\r\n"); 
     }
     //===================================================================================================//
     if (app_io_get_hardware_version() == 3) // Khởi tạo UART giao tiếp STM32/GD32 trước để điều khiển IO
@@ -4070,6 +4122,7 @@ void app_main(void)
 
     /* Task http stream */
     live_streaming_down_task(NULL);
+    //start_pipeline_a2dp_sink_stream();
 }
 
 

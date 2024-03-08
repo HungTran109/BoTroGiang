@@ -200,7 +200,10 @@ void app_mqtt_initialize(void)
     m_mqtt_config.password = app_flash_get_mqtt_server_password();
     m_mqtt_config.keepalive = APP_MQTT_KEEP_ALIVE_INTERVAL; /* seconds */
     m_mqtt_config.event_handle = mqtt_event_handler;
-    ESP_LOGD(TAG, "Mqtt broker %s", m_mqtt_config.uri);
+    DEBUG_INFO("Mqtt broker %s\r\n", m_mqtt_config.uri);
+    DEBUG_INFO("Mqtt username %s\r\n", m_mqtt_config.username);
+    DEBUG_INFO("Mqtt password %s\r\n", m_mqtt_config.password);
+    DEBUG_INFO("Mqtt client_id %s\r\n", m_mqtt_config.client_id);
     if (strstr(m_mqtt_config.uri, "mqtts://"))
     {
         // m_mqtt_config.cert_pem = root_ca;
@@ -1925,7 +1928,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
         break;
 
     default:
-        DEBUG_VERBOSE(TAG, "MQTT other event id: %d\r\n", event->event_id);
+        DEBUG_VERBOSE("MQTT other event id: %d\r\n", event->event_id);
         break;
     }
     return ESP_OK;

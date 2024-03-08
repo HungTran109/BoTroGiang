@@ -4,6 +4,17 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "app_audio.h"
+#include "driver/gpio.h"
+#include "sdcard.h"
+#include "periph_sdcard.h"
+#include "esp_vfs_fat.h"
+#include "driver/sdspi_host.h"
+#include "driver/spi_common.h"
+#include "sdmmc_cmd.h"
+#include "sdkconfig.h"
+#ifdef CONFIG_IDF_TARGET_ESP32
+#include "driver/sdmmc_host.h"
+#endif
 
 //Điều khiển IO STM32 Expander
 #define APP_IO_STM_OPTO_ON 1
@@ -51,6 +62,13 @@
 #define APP_IO_BUTTON_ON_AIR_NUM GPIO_NUM_36
 #define APP_IO_MIC_DETECT_NUM GPIO_NUM_39
 
+#define SD_CS_GPIO_PIN      14
+#define SD_MOSI_GPIO_PIN    13
+#define SD_MISO_GPIO_PIN    12
+#define BUTTON_INPUT        34
+#define GPIO_OUTPUT_SEL ((1ULL << SD_CS_GPIO_PIN) | (1ULL << SD_MOSI_GPIO_PIN))
+#define GPIO_INPUT_SEL ((1ULL << BUTTON_INPUT))
+
 typedef enum
 {
     APP_IO_MCU_PROTOCOL_STATE_UNKNOWN,
@@ -82,6 +100,23 @@ typedef union
     } __attribute__((packed)) BitName;
     uint16_t Value;
 } __attribute__((packed)) app_io_i2c_expander_t;
+
+typedef union
+{
+    struct
+    {
+        uint16_t LED_BLE : 1;
+        uint16_t LED_AUX : 1;
+        uint16_t LED_SDCARD : 1;
+        uint16_t LED_DEBUG : 1;
+        uint16_t LED_INTERNET : 1;
+        uint16_t LED_STREAM : 1;
+        uint16_t EN_PA : 1;
+        uint16_t NA : 9;
+    } __attribute__((packed)) BitName;
+    uint16_t Value;
+} __attribute__((packed)) app_io_i2c_t;
+
 
 typedef union
 {
@@ -224,6 +259,49 @@ typedef union
     } __attribute__((packed)) name;
     uint32_t val;
 } __attribute__((packed)) app_io_ex_info_t;
+
+//***************** SD CARD DEFINE ****************/
+#define MOUNT_POINT "/sdcard"
+// This example can use SDMMC and SPI peripherals to communicate with SD card.
+// By default, SDMMC peripheral is used.
+// To enable SPI mode, uncomment the following line:
+#define USE_SPI_MODE    
+// ESP32-S2 and ESP32-C3 doesn't have an SD Host peripheral, always use SPI:
+#if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3
+#ifndef USE_SPI_MODE
+#define USE_SPI_MODE
+#endif // USE_SPI_MODE
+// on ESP32-S2, DMA channel must be the same as host id
+#if CONFIG_IDF_TARGET_ESP32S2
+#define SPI_DMA_CHAN    host.slot
+#elif CONFIG_IDF_TARGET_ESP32C3
+#define SPI_DMA_CHAN    SPI_DMA_CH_AUTO
+#endif //CONFIG_IDF_TARGET_ESP32S2
+#endif //CONFIG_IDF_TARGET_ESP32S2
+// DMA channel to be used by the SPI peripheral
+#ifndef SPI_DMA_CHAN
+#define SPI_DMA_CHAN    1
+#endif //SPI_DMA_CHAN
+// When testing SD and SPI modes, keep in mind that once the card has been
+// initialized in SPI mode, it can not be reinitialized in SD mode without
+// toggling power to the card.
+#ifdef USE_SPI_MODE
+// Pin mapping when using SPI mode.
+// With this mapping, SD card can be used both in SPI and 1-line SD mode.
+// Note that a pull-up on CS line is required in SD mode.
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
+#define PIN_NUM_MISO 12
+#define PIN_NUM_MOSI 13
+#define PIN_NUM_CLK  2
+#define PIN_NUM_CS   14
+#elif CONFIG_IDF_TARGET_ESP32C3
+#define PIN_NUM_MISO 18
+#define PIN_NUM_MOSI 9
+#define PIN_NUM_CLK  8
+#define PIN_NUM_CS   19
+#endif //CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
+#endif //USE_SPI_MODE
+//************************************************/
 
 /**
  * @brief           Get io expander i2c value
@@ -577,4 +655,10 @@ uint8_t app_io_get_btn_on_air_level(void);
  */
 uint8_t app_io_is_power_lost(void);
 
+void board_gpio_config (void);
+esp_err_t SD_card_config (void);
+esp_err_t i2c_app_io_set (app_io_i2c_t* io_i2c);
+int app_i2c_config();
+uint8_t get_button_state (void);
+void set_button_state (uint8_t val);
 #endif /* APP_IO_H */
