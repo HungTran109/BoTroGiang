@@ -663,34 +663,6 @@ void slave_report_info_now(void)
     m_mqtt_send_heartbeat_counter = HEARTBEAT_INTERVAL;
 }
 
-void set_PA_state (app_io_i2c_t* info_to_send, uint8_t state)
-{
-    esp_err_t ret = ESP_OK;
-    if (state)
-    {
-        info_to_send->BitName.LED_BLE = 1;
-        info_to_send->BitName.LED_AUX = 1;
-        info_to_send->BitName.LED_SDCARD = 1;
-        info_to_send->BitName.LED_DEBUG = 1;
-        info_to_send->BitName.LED_INTERNET = 1;
-        info_to_send->BitName.LED_STREAM = 1;
-    }
-    else
-    {
-        info_to_send->BitName.LED_BLE = 0;
-        info_to_send->BitName.LED_AUX = 0;
-        info_to_send->BitName.LED_SDCARD = 0;
-        info_to_send->BitName.LED_DEBUG = 0;
-        info_to_send->BitName.LED_INTERNET = 0;
-        info_to_send->BitName.LED_STREAM = 0;
-    }
-    ret = i2c_app_io_set (info_to_send);
-    if (ret != ESP_OK)
-    {
-        DEBUG_ERROR ("SEND IO STATE THROUGH I2C FAIL:%x\r\n", ret);
-    }
-}
-
 /******************************************************************************************/
 /**
  * @brief   : task quản lý hoạt động của module gsm
@@ -734,6 +706,7 @@ static void main_manager_task(void *arg)
         /* ==================================== Quản lý MQTT connection ==========================================*/
         if (network_is_connected())
         {
+            set_led_internet_state(0);
             switch (app_mqtt_get_state())
             {
             case APP_MQTT_DISCONNECTED:
@@ -941,6 +914,10 @@ static void main_manager_task(void *arg)
             default:
                 break;
             }
+        }
+        else
+        {
+            set_led_internet_state(1);
         }
 
         if (m_mqtt_disconnected_timeout > NETWORK_ERROR_TIMEOUT_SEC)
@@ -1526,10 +1503,16 @@ static void main_manager_task(void *arg)
                 DEBUG_INFO("--> windows = 0, auto stop opto in = 15s\r\n");
             }
         }
-        static bool logic_test = false;
-        app_io_i2c_t test;
-        set_PA_state (&test, logic_test);
-        logic_test = !logic_test;
+        //static bool logic_test = false;
+        // app_io_i2c_t test;
+        // set_PA_state (&test, logic_test);
+        //set_led_internet_state(logic_test);
+
+        //logic_test = !logic_test;
+
+        // set_PA_state(logic_test);
+        // logic_test = !logic_test;
+
 
         vTaskDelay(1000 / portTICK_RATE_MS);
     }
@@ -4123,6 +4106,8 @@ void app_main(void)
     /* Task http stream */
     live_streaming_down_task(NULL);
     //start_pipeline_a2dp_sink_stream();
+
+    //start_sdcard_pipeline();
 }
 
 

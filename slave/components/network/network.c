@@ -63,9 +63,9 @@
 #endif
 #endif /* IDF_VERSION_BELOW_3V3 */
 
-#define PIN_PHY_POWER CONFIG_PHY_POWER_PIN
 #define PIN_SMI_MDC CONFIG_PHY_SMI_MDC_PIN
 #define PIN_SMI_MDIO CONFIG_PHY_SMI_MDIO_PIN
+#define PIN_PHY_POWER -1//CONFIG_PHY_POWER_PIN
 
 #define BIT_WIFI_GOT_IP             BIT0
 #define BIT_ETH_GOT_IP              BIT1
@@ -908,11 +908,10 @@ void network_initialize(network_wifi_info_t *info, network_event_cb_t on_ip_call
     ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID, &ethernet_event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &eth_got_ip_event_handler, NULL));
 
-    phy_config.phy_addr = CONFIG_PHY_ADDRESS;
     phy_config.reset_gpio_num = PIN_PHY_POWER;
 
-    mac_config.smi_mdc_gpio_num = CONFIG_PHY_SMI_MDC_PIN;
-    mac_config.smi_mdio_gpio_num = CONFIG_PHY_SMI_MDIO_PIN;
+    mac_config.smi_mdc_gpio_num = PIN_SMI_MDC;
+    mac_config.smi_mdio_gpio_num = PIN_SMI_MDIO;
     mac = esp_eth_mac_new_esp32(&mac_config);
     phy = esp_eth_phy_new_ip101(&phy_config);
 

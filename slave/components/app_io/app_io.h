@@ -654,6 +654,14 @@ uint8_t app_io_get_btn_on_air_level(void);
  * @brief           Check if vin lost
  */
 uint8_t app_io_is_power_lost(void);
+/**
+ * @brief           Set led Internet state
+ */
+void set_led_internet_state (uint8_t state);
+/**
+ * @brief           Set EN_PA state
+ */
+void set_PA_state (uint8_t state);
 
 void board_gpio_config (void);
 esp_err_t SD_card_config (void);

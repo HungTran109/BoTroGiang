@@ -94,6 +94,8 @@ static uint32_t m_dtmf_state = 0;
 static uint32_t m_dtmf_retires = 0;
 static uint8_t m_vin_lost = 0;
 
+static app_io_i2c_t m_hw_output_state;
+
 static uint8_t button_pin_state = 0;
 
 static void process_dtmf_state(void)
@@ -2710,6 +2712,43 @@ static bool gd32_uart_tx(void *ctx, uint8_t data)
     }
     return true;
 }
+
+void set_led_internet_state (uint8_t state)
+{
+    esp_err_t ret = ESP_OK;
+    if (state)
+    {
+        m_hw_output_state.BitName.LED_INTERNET = 1;
+    }
+    else
+    {
+        m_hw_output_state.BitName.LED_INTERNET = 0;
+    }
+    ret = i2c_app_io_set (&m_hw_output_state);
+    if (ret != ESP_OK)
+    {
+        DEBUG_ERROR ("SEND IO STATE THROUGH I2C FAIL:%x\r\n", ret);
+    }
+}
+
+void set_PA_state (uint8_t state)
+{
+    esp_err_t ret = ESP_OK;
+    if (state)
+    {
+        m_hw_output_state.BitName.EN_PA = 1;
+    }
+    else
+    {
+        m_hw_output_state.BitName.EN_PA = 0;
+    }
+    ret = i2c_app_io_set (&m_hw_output_state);
+    if (ret != ESP_OK)
+    {
+        DEBUG_ERROR ("SEND IO STATE THROUGH I2C FAIL:%x\r\n", ret);
+    }
+}
+
 uint8_t get_button_state (void)
 {
     return button_pin_state;
