@@ -58,7 +58,13 @@ typedef enum
     APP_AUDIO_LINE_IN_AUX = 0x01, // AUDIO_HAL_ADC_INPUT_LINE2
 } app_audio_line_in_type_t;
 
+#define SAVE_FILE_RATE      44100
+#define SAVE_FILE_CHANNEL   2
+#define SAVE_FILE_BITS      16
 
+#define PLAYBACK_RATE       48000
+#define PLAYBACK_CHANNEL    2
+#define PLAYBACK_BITS       16
 /**
  * @brief       Check if http stream is running
  * @retval      1 HTTP stream is running
@@ -337,5 +343,11 @@ uint32_t app_audio_get_force_turn_off_pa_remain_time(void);
  * @brief       Reset timeout force turn of OA
  */
 void app_audio_reset_force_turn_off_pa_when_link_404_not_found(void);
+
+/**
+ * @brief Start audio pipeline from sdcard
+ * 
+ */
+void start_sdcard_pipeline (void);
 
 #endif /* APP_AUDIO_H */

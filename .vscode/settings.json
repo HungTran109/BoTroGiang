@@ -10,6 +10,8 @@
         "esp_task.h": "c",
         "nvs.h": "c",
         "app_debug.h": "c",
-        "bt_keycontrol.h": "c"
+        "bt_keycontrol.h": "c",
+        "sdcard_list.h": "c",
+        "sdcard_scan.h": "c"
     }
 }

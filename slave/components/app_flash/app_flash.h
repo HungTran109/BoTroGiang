@@ -54,9 +54,9 @@ typedef enum
 #define APP_FLASH_HTTP_STREAM_PASSWORD_KEY    "stream_pass"
 #define APP_FLASH_KEY_ALTERNATIVE_IMEI  "alt_imei"
 #define APP_FLASH_IO_MAIN_GD32_PROTCOL_KEY "gd_p"
-#define APP_FLASH_BROKER_URL "mqtt://village-speaker.bytechjsc.vn:2591"
-#define APP_FLASH_MQTT_USERNAME "village-speaker"
-#define APP_FLASH_MQTT_PASSWORD "vs.bytech@2019"
+#define APP_FLASH_BROKER_URL "mqtt://emqx3.radiotech.vn:2883"
+#define APP_FLASH_MQTT_USERNAME "ttn.emqx"
+#define APP_FLASH_MQTT_PASSWORD "emqx938slk0"
 #define APP_FLASH_HTTP_STREAM_URL_SIZE    96
 #define APP_FLASH_HTTP_STREAM_HEADER_SIZE 96
 #define APP_FLASH_HTTP_STREAM_PASSWORD_SIZE 96

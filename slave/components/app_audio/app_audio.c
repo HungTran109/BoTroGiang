@@ -23,12 +23,18 @@
 #include "main.h"
 #include "pcf8575.h"
 #include "app_debug.h"
+#include "fatfs_stream.h"
+#include "mp3_decoder.h"
+#include "aac_decoder.h"
+#include "filter_resample.h"
+#include "sdcard_list.h"
+#include "sdcard_scan.h"
 
-static const char *TAG = "app_audio";
+//static const char *TAG = "app_audio";
 
 // static esp_periph_handle_t m_button_handle;
 static esp_periph_set_handle_t m_periph_set_handle;
-static esp_periph_handle_t bt_periph = NULL;
+//static esp_periph_handle_t bt_periph = NULL;
 audio_event_iface_handle_t m_evt;
 static audio_board_handle_t m_board_handle = NULL;
 static uint8_t m_output_vol = 70;
@@ -39,8 +45,19 @@ static audio_element_handle_t m_http_stream_reader, m_i2s_stream_writer;
 static audio_element_handle_t m_opus_decoder;
 static uint8_t m_auto_restart_stream_retries_number = 0;
 static app_audio_codec_mode_t m_codec_mode;
+// static audio_pipeline_handle_t pipeline_play = NULL;
 
+// playlist_operator_handle_t sdcard_list_handle = NULL;
 
+// static audio_element_handle_t fatfs_aac_reader_el;
+// static audio_element_handle_t fatfs_mp3_reader_el;
+// static audio_element_handle_t mp3_decoder_el;
+// static audio_element_handle_t aac_decoder_el;
+// static audio_element_handle_t filter_upsample_el;
+// static audio_element_handle_t i2s_writer_el;
+
+// const char *link_tag[4] = {"file_mp3_reader", "mp3_decoder", "filter_upsample", "i2s_writer"};
+// audio_event_iface_handle_t evt;
 // typedef enum {
 //     AEL_STATE_NONE          = 0,
 //     AEL_STATE_INIT          = 1,
@@ -243,6 +260,8 @@ bool app_audio_board_init(void)
     // Initialize peripherals management
     esp_periph_config_t periph_cfg = DEFAULT_ESP_PERIPH_SET_CONFIG();
     m_periph_set_handle = esp_periph_set_init(&periph_cfg);
+
+    //audio_board_sdcard_init(m_periph_set_handle);
 
     m_board_handle = audio_board_init(0);
     return m_board_handle ? true : false;
@@ -1223,7 +1242,7 @@ void app_audio_start(void)
         m_auto_restart_stream_retries_number = 2;
     }
 }
-
+/*   BLUETOOTH    */
 // void start_pipeline_a2dp_sink_stream(void)
 // {
 //     audio_pipeline_handle_t pipeline;
@@ -1396,5 +1415,230 @@ void app_audio_start(void)
 //     esp_bt_controller_disable();
 //     esp_bt_controller_deinit();
 //     esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
+// }
+/*   SD CARD    */
+// static audio_element_handle_t create_mp3_decoder()
+// {
+//     mp3_decoder_cfg_t mp3_cfg = DEFAULT_MP3_DECODER_CONFIG();
+//     return mp3_decoder_init(&mp3_cfg);
+// }
+
+// static audio_element_handle_t create_aac_decoder()
+// {
+//     aac_decoder_cfg_t aac_cfg = DEFAULT_AAC_DECODER_CONFIG();
+//     return aac_decoder_init(&aac_cfg);
+// }
+
+// static audio_element_handle_t create_filter(int source_rate, int source_channel, int dest_rate, int dest_channel)
+// {
+//     rsp_filter_cfg_t rsp_cfg = DEFAULT_RESAMPLE_FILTER_CONFIG();
+//     rsp_cfg.src_rate = source_rate;
+//     rsp_cfg.src_ch = source_channel;
+//     rsp_cfg.dest_rate = dest_rate;
+//     rsp_cfg.dest_ch = dest_channel;
+//     return rsp_filter_init(&rsp_cfg);
+// }
+
+
+// static audio_element_handle_t create_i2s_stream(int sample_rates, int bits, int channels, audio_stream_type_t type)
+// {
+//     i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT();
+//     i2s_cfg.type = type;
+//     audio_element_handle_t i2s_stream = i2s_stream_init(&i2s_cfg);
+//     mem_assert(i2s_stream);
+//     audio_element_info_t i2s_info = {0};
+//     audio_element_getinfo(i2s_stream, &i2s_info);
+//     i2s_info.bits = bits;
+//     i2s_info.channels = channels;
+//     i2s_info.sample_rates = sample_rates;
+//     audio_element_setinfo(i2s_stream, &i2s_info);
+//     return i2s_stream;
+// }
+
+// static audio_element_handle_t create_fatfs_stream(int sample_rates, int bits, int channels, audio_stream_type_t type)
+// {
+//     fatfs_stream_cfg_t fatfs_cfg = FATFS_STREAM_CFG_DEFAULT();
+//     fatfs_cfg.type = type;
+//     audio_element_handle_t fatfs_stream = fatfs_stream_init(&fatfs_cfg);
+//     mem_assert(fatfs_stream);
+//     audio_element_info_t writer_info = {0};
+//     audio_element_getinfo(fatfs_stream, &writer_info);
+//     writer_info.bits = bits;
+//     writer_info.channels = channels;
+//     writer_info.sample_rates = sample_rates;
+//     audio_element_setinfo(fatfs_stream, &writer_info);
+//     return fatfs_stream;
+// }
+
+// // void creat_audio_all_element (audio_pipeline_handle_t* m_pipeline)
+// // {
+// //     fatfs_aac_reader_el = create_fatfs_stream(SAVE_FILE_RATE, SAVE_FILE_BITS, SAVE_FILE_CHANNEL, AUDIO_STREAM_READER);
+// //     fatfs_mp3_reader_el = create_fatfs_stream(SAVE_FILE_RATE, SAVE_FILE_BITS, SAVE_FILE_CHANNEL, AUDIO_STREAM_READER);
+// //     mp3_decoder_el = create_mp3_decoder();
+// //     aac_decoder_el = create_aac_decoder();
+// //     filter_upsample_el = create_filter(SAVE_FILE_RATE, SAVE_FILE_CHANNEL, PLAYBACK_RATE, PLAYBACK_CHANNEL);
+// //     m_i2s_stream_writer = create_i2s_stream(PLAYBACK_RATE, PLAYBACK_BITS, PLAYBACK_CHANNEL, AUDIO_STREAM_WRITER);
+
+// //     audio_pipeline_register(*m_pipeline, fatfs_aac_reader_el,  "file_aac_reader");
+// //     audio_pipeline_register(*m_pipeline, fatfs_mp3_reader_el,  "file_mp3_reader");
+// //     audio_pipeline_register(*m_pipeline, mp3_decoder_el,       "mp3_decoder");
+// //     audio_pipeline_register(*m_pipeline, aac_decoder_el,       "aac_decoder");
+// //     audio_pipeline_register(*m_pipeline, filter_upsample_el,   "filter_upsample");
+// //     audio_pipeline_register(*m_pipeline, m_i2s_stream_writer,        "i2s_writer");
+// //     DEBUG_INFO ("CREATE AUDIO ELEMENT\r\n");
+// // }
+
+// void sdcard_url_save_cb(void *user_data, char *url)
+// {
+//     playlist_operator_handle_t sdcard_handle = (playlist_operator_handle_t)user_data;
+//     esp_err_t ret = sdcard_list_save(sdcard_handle, url);
+//     if (ret != ESP_OK) {
+//         DEBUG_ERROR("Fail to save sdcard url to sdcard playlist");
+//     }
+// }
+
+// void start_sdcard_pipeline (void)
+// {
+//     audio_element_handle_t fatfs_stream_reader, i2s_stream_writer, mp3_decoder;
+
+//     // esp_log_level_set("*", ESP_LOG_WARN);
+//     // esp_log_level_set(  ESP_LOG_INFO);
+
+//     // DEBUG_INFO(  "[ 1 ] Mount sdcard");
+//     // // Initialize peripherals management
+//     // periph_cfg = DEFAULT_ESP_PERIPH_SET_CONFIG();
+//     esp_periph_config_t periph_cfg = DEFAULT_ESP_PERIPH_SET_CONFIG();
+//     m_periph_set_handle = esp_periph_set_init(&periph_cfg);
+    
+//     // // Initialize SD Card peripheral
+//     // audio_board_sdcard_init(set, SD_MODE_SPI);
+//     audio_board_sdcard_init(m_periph_set_handle);
+//     DEBUG_INFO("[ 2 ] Start codec chip");
+//     m_board_handle = audio_board_init(50);
+//     audio_hal_ctrl_codec(m_board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
+//     m_codec_mode = APP_AUDIO_CODEC_MODE_DECODE;
+
+//     audio_pipeline_cfg_t pipeline_cfg = DEFAULT_AUDIO_PIPELINE_CONFIG();
+//     pipeline_play = audio_pipeline_init(&pipeline_cfg);
+
+//     DEBUG_INFO( "[ 1 ] Create all audio elements for playback pipeline");
+//     fatfs_aac_reader_el = create_fatfs_stream(SAVE_FILE_RATE, SAVE_FILE_BITS, SAVE_FILE_CHANNEL, AUDIO_STREAM_READER);
+//     fatfs_mp3_reader_el = create_fatfs_stream(SAVE_FILE_RATE, SAVE_FILE_BITS, SAVE_FILE_CHANNEL, AUDIO_STREAM_READER);
+//     mp3_decoder_el = create_mp3_decoder();
+//     aac_decoder_el = create_aac_decoder();
+//     filter_upsample_el = create_filter(SAVE_FILE_RATE, SAVE_FILE_CHANNEL, PLAYBACK_RATE, PLAYBACK_CHANNEL);
+//     i2s_writer_el = create_i2s_stream(PLAYBACK_RATE, PLAYBACK_BITS, PLAYBACK_CHANNEL, AUDIO_STREAM_WRITER);
+
+//     DEBUG_INFO( "[ 2 ] Register all audio elements to playback pipeline");
+//     audio_pipeline_register(pipeline_play, fatfs_aac_reader_el,  "file_aac_reader");
+//     audio_pipeline_register(pipeline_play, fatfs_mp3_reader_el,  "file_mp3_reader");
+//     audio_pipeline_register(pipeline_play, mp3_decoder_el,       "mp3_decoder");
+//     audio_pipeline_register(pipeline_play, aac_decoder_el,       "aac_decoder");
+//     audio_pipeline_register(pipeline_play, filter_upsample_el,   "filter_upsample");
+//     audio_pipeline_register(pipeline_play, i2s_writer_el,        "i2s_writer");
+
+//     //char *p0_reader_tag = NULL;
+//     //audio_element_set_uri(fatfs_aac_reader_el, "/sdcard/test.aac");
+//     //p0_reader_tag = "file_aac_reader";
+
+//     //creat list of song mp3 in sd card
+//     sdcard_list_create(&sdcard_list_handle);
+//     sdcard_scan(sdcard_url_save_cb, "/sdcard", 0, (const char *[]) {"mp3"}, 1, sdcard_list_handle);
+//     sdcard_list_show(sdcard_list_handle);
+
+//     char* url = NULL;
+//     sdcard_list_current(sdcard_list_handle, &url);
+//     DEBUG_WARN("%s\r\n", url);
+//     audio_element_set_uri(fatfs_mp3_reader_el, url);
+
+//     DEBUG_INFO( "[ 3 ] Set up  event listener");
+//     audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
+//     evt = audio_event_iface_init(&evt_cfg);
+
+//     audio_event_iface_set_listener(esp_periph_set_get_event_iface(m_periph_set_handle), evt);
+
+//     DEBUG_INFO( "[3.1] Set up  i2s clock");
+//     i2s_stream_set_clk(i2s_writer_el, PLAYBACK_RATE, PLAYBACK_BITS, PLAYBACK_CHANNEL);
+
+//     DEBUG_INFO( "[ 4 ] Start playback pipeline");
+//     bool source_is_mp3_format = false;
+//     // const char *link_tag[4] = {"file_mp3_reader", "mp3_decoder", "filter_upsample", "i2s_writer"};
+//     audio_pipeline_link(pipeline_play, &link_tag[0], 4);
+//     app_audio_test_mode_change_codec_vol(70);
+//     set_PA_state (1);
+//     audio_pipeline_set_listener(pipeline_play, evt);
+//     audio_pipeline_run(pipeline_play);
+    
+
+//     while (1) {
+//         audio_event_iface_msg_t msg;
+//         esp_err_t ret = audio_event_iface_listen(evt, &msg, portMAX_DELAY);
+
+//         if (ret != ESP_OK) {
+//             DEBUG_ERROR( "[ * ] Event interface error : %d\r\n", ret);
+//             continue;
+//         }
+//         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT) 
+//         {
+//             // Advance to the next song when previous finishes
+//             if (msg.source == (void *) i2s_writer_el
+//                 && msg.cmd == AEL_MSG_CMD_REPORT_STATUS) 
+//             {
+//                 audio_element_state_t el_state = audio_element_get_state(i2s_writer_el);
+//                 if (el_state == AEL_STATE_FINISHED) {
+//                     DEBUG_INFO("[ * ] Finished, advancing to the next song\r\n");
+//                     sdcard_list_next(sdcard_list_handle, 1, &url);
+//                     DEBUG_WARN("URL: %s\r\n", url);
+
+//                     audio_element_set_uri(fatfs_mp3_reader_el, url);
+//                     audio_pipeline_reset_ringbuffer(pipeline_play);
+//                     audio_pipeline_reset_elements(pipeline_play);
+//                     audio_pipeline_change_state(pipeline_play, AEL_STATE_INIT);
+//                     audio_pipeline_run(pipeline_play);
+//                 }
+//                 continue;
+//             }
+//         }
+//         // check_audio_elements_if_error_occur (mp3_decoder_el, evt, &link_tag[0]);
+
+//         // if (((int)msg.data == get_input_mode_id()) && (msg.cmd == PERIPH_BUTTON_PRESSED || msg.cmd == PERIPH_ADC_BUTTON_PRESSED
+//         //         || msg.cmd == PERIPH_TOUCH_TAP)) {
+//         //     source_is_mp3_format = !source_is_mp3_format;
+//         //     audio_pipeline_pause(pipeline_play);
+//         //      DEBUG_ERROR( "Changing music to %s", source_is_mp3_format ? "mp3 format" : "aac format");
+//         //     if (source_is_mp3_format) {
+//         //         audio_pipeline_breakup_elements(pipeline_play, aac_decoder_el);
+//         //         audio_pipeline_relink(pipeline_play, (const char *[]) {"file_mp3_reader", "mp3_decoder", "filter_upsample", "i2s_writer"}, 4);
+//         //         audio_pipeline_set_listener(pipeline_play, evt);
+//         //     } else {
+//         //         audio_pipeline_breakup_elements(pipeline_play, mp3_decoder_el);
+//         //         audio_pipeline_relink(pipeline_play, (const char *[]) {p0_reader_tag, "aac_decoder", "filter_upsample", "i2s_writer"}, 4);
+//         //         audio_pipeline_set_listener(pipeline_play, evt);
+//         //     }
+//         //     audio_pipeline_run(pipeline_play);
+//         //     audio_pipeline_resume(pipeline_play);
+//         //      DEBUG_ERROR( "[ 4.1 ] Start playback new pipeline");
+//         // }
+//     }
+
+//     DEBUG_ERROR ( "[ 5 ] Stop playback pipeline");
+//     audio_pipeline_stop(pipeline_play);
+//     audio_pipeline_wait_for_stop(pipeline_play);
+//     audio_pipeline_terminate(pipeline_play);
+//     audio_pipeline_unregister_more(pipeline_play, fatfs_aac_reader_el,
+//                                    fatfs_mp3_reader_el, mp3_decoder_el,
+//                                    aac_decoder_el, filter_upsample_el, i2s_writer_el, NULL);
+
+//     audio_pipeline_remove_listener(pipeline_play);
+//     esp_periph_set_stop_all(m_periph_set_handle);
+//     audio_event_iface_remove_listener(esp_periph_set_get_event_iface(m_periph_set_handle), evt);
+//     audio_event_iface_destroy(evt);
+
+//     audio_element_deinit(fatfs_aac_reader_el);
+//     audio_element_deinit(fatfs_mp3_reader_el);
+//     audio_element_deinit(mp3_decoder_el);
+//     audio_element_deinit(aac_decoder_el);
+//     audio_element_deinit(filter_upsample_el);
+//     audio_element_deinit(i2s_writer_el);
 // }
 

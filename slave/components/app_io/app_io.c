@@ -48,7 +48,6 @@
 #define MCU_MAX_NAME_LEN 16
 #define FM_RDS_MSG_SIZE 87
 
-#define I2C_GD32_SLAVE_ADDRESS7    (uint8_t)0x44
 // #define DTMF_TIMEOUT1    7
 // #define DTMF_TIMEOUT2    7
 
@@ -94,9 +93,9 @@ static uint32_t m_dtmf_state = 0;
 static uint32_t m_dtmf_retires = 0;
 static uint8_t m_vin_lost = 0;
 
-static app_io_i2c_t m_hw_output_state;
+static app_io_i2c_t m_i2c_control_io;
 
-static uint8_t button_pin_state = 0;
+static button_state_t button_pin_state = BTN_IS_RELEASED;
 
 static void process_dtmf_state(void)
 {
@@ -531,7 +530,10 @@ app_io_i2c_expander_t *app_io_get_i2c_exp_value(void)
 {
     return &i2c_io_expander;
 }
-
+app_io_i2c_t *app_io_get_i2c_control_io_value(void)
+{
+    return &m_i2c_control_io;
+}
 app_io_mcu_expander_t *app_io_get_mcu_exp_value(void)
 {
     return &mcu_expander;
@@ -550,11 +552,19 @@ app_io_protocol_type_t app_io_get_fm_protocol_method(void)
 
 uint32_t app_io_get_pa_state(void)
 {
+#ifdef BOARD_HW_VER_BOTROGIANG_A00
+    return m_i2c_control_io.BitName.EN_PA;
+#else
     return i2c_io_expander.BitName.en_pa;
+#endif
 }
 
 bool app_io_is_pa_off(void)
 {
+#ifdef BOARD_HW_VER_BOTROGIANG_A00
+    if (m_i2c_control_io.BitName.EN_PA != APP_IO_PA_ON)
+    return true;
+#else
     if (m_hw_version == 2)
     {
         if (i2c_io_expander.BitName.en_pa != APP_IO_PA_ON)
@@ -565,6 +575,7 @@ bool app_io_is_pa_off(void)
         if (mcu_expander.BitName.en_pa != APP_IO_STM_PA_ON)
             return true;
     }
+#endif
     return false;
 }
 
@@ -1468,7 +1479,30 @@ void app_io_control_pa(uint8_t state)
     {
         force_turn_off_pa_when_volume_zero = true;
     }
+#ifdef BOARD_HW_VER_BOTROGIANG_A00
+    if ((state && spk_err) || (m_temperature > 75 && m_temperature < 80) || force_turn_off_pa_when_volume_zero)
+    {
+        // Khi ho mach hoac ngan mach thi ko bat PA
+        app_io_get_i2c_control_io_value()->BitName.EN_PA = APP_IO_PA_OFF;
+        return;
+    }
 
+    ESP_LOGD(TAG, "Turn PA_EN: %s", state ? "ON" : "OFF");
+
+    if (state)
+    {
+        app_io_get_i2c_control_io_value()->BitName.EN_PA = APP_IO_PA_ON;
+    }
+    else
+    {
+        app_io_get_i2c_control_io_value()->BitName.EN_PA = APP_IO_PA_OFF;
+    }
+
+    Int_t ex_out;
+    ex_out.value = app_io_get_i2c_control_io_value()->Value;
+    app_audio_hal_i2c_master_write(I2C_GD32_SLAVE_ADDRESS7 << 1, ex_out.bytes, sizeof(app_io_i2c_t));
+
+#else
     if ((state && spk_err) || (m_temperature > 75 && m_temperature < 80) || force_turn_off_pa_when_volume_zero)
     {
         // Khi ho mach hoac ngan mach thi ko bat PA
@@ -1500,6 +1534,7 @@ void app_io_control_pa(uint8_t state)
     {
         app_io_mcu_update_io(&mcu_expander);
     }
+#endif
 }
 
 static bool m_fm_allowed = false;
@@ -2713,41 +2748,68 @@ static bool gd32_uart_tx(void *ctx, uint8_t data)
     return true;
 }
 
-void set_led_internet_state (uint8_t state)
-{
-    esp_err_t ret = ESP_OK;
-    if (state)
-    {
-        m_hw_output_state.BitName.LED_INTERNET = 1;
-    }
-    else
-    {
-        m_hw_output_state.BitName.LED_INTERNET = 0;
-    }
-    ret = i2c_app_io_set (&m_hw_output_state);
-    if (ret != ESP_OK)
-    {
-        DEBUG_ERROR ("SEND IO STATE THROUGH I2C FAIL:%x\r\n", ret);
-    }
-}
+// void set_led_internet_state (uint8_t state)
+// {
+//     esp_err_t ret = ESP_OK;
+//     if (state)
+//     {
+//         m_hw_output_state.BitName.LED_INTERNET = 1;
+//     }
+//     else
+//     {
+//         m_hw_output_state.BitName.LED_INTERNET = 0;
+//     }
+//     ret = i2c_app_io_set (&m_hw_output_state);
+//     if (ret != ESP_OK)
+//     {
+//         DEBUG_ERROR ("SEND IO STATE THROUGH I2C FAIL:%x\r\n", ret);
+//     }
+// }
 
-void set_PA_state (uint8_t state)
-{
-    esp_err_t ret = ESP_OK;
-    if (state)
-    {
-        m_hw_output_state.BitName.EN_PA = 1;
-    }
-    else
-    {
-        m_hw_output_state.BitName.EN_PA = 0;
-    }
-    ret = i2c_app_io_set (&m_hw_output_state);
-    if (ret != ESP_OK)
-    {
-        DEBUG_ERROR ("SEND IO STATE THROUGH I2C FAIL:%x\r\n", ret);
-    }
-}
+// void set_PA_state (uint8_t state)
+// {
+//     esp_err_t ret = ESP_OK;
+//     if (state)
+//     {
+//         m_hw_output_state.BitName.EN_PA = 1;
+//     }
+//     else
+//     {
+//         m_hw_output_state.BitName.EN_PA = 0;
+//     }
+//     ret = i2c_app_io_set (&m_hw_output_state);
+//     if (ret != ESP_OK)
+//     {
+//         DEBUG_ERROR ("SEND IO STATE THROUGH I2C FAIL:%x\r\n", ret);
+//     }
+// }
+// void set_led_debug_state (uint8_t state)
+// {
+//     esp_err_t ret = ESP_OK;
+//     if (state)
+//     {
+//         m_hw_output_state.BitName.LED_DEBUG = 1;
+//     }
+//     else
+//     {
+//         m_hw_output_state.BitName.LED_DEBUG = 0;
+//     }
+//     ret = i2c_app_io_set (&m_hw_output_state);
+//     if (ret != ESP_OK)
+//     {
+//         DEBUG_ERROR ("SEND IO STATE THROUGH I2C FAIL:%x\r\n", ret);
+//     }
+// }
+
+// void set_led_state (app_io_i2c_t* info_to_send)
+// {
+//     esp_err_t ret = ESP_OK;
+//     ret = i2c_app_io_set (info_to_send);
+//     if (ret != ESP_OK)
+//     {
+//         DEBUG_ERROR ("SEND IO STATE THROUGH I2C FAIL:%x\r\n", ret);
+//     }
+// }
 
 uint8_t get_button_state (void)
 {
@@ -2759,29 +2821,36 @@ void set_button_state (uint8_t val)
 }
 void read_button_task (void* arg)
 {
-    DEBUG_WARN ("READ BUTTON TASK IS CREATED\r\n");
-    static uint32_t cnt = 0;
+    //DEBUG_WARN ("READ BUTTON TASK IS CREATED\r\n");
+    static uint32_t cnt = 0; 
+    static uint32_t m_last_tick = 0;
     while (1)
     {
         if (cnt++ > 200)
         {
-            cnt = 0;
-            DEBUG_WARN ("READ BUTTON TASK IS running\r\n");
+            cnt = 0; 
+            //DEBUG_WARN ("READ BUTTON TASK IS running\r\n");
         }
-        if ((!gpio_get_level(BUTTON_INPUT)) && !get_button_state())
+        if (!gpio_get_level(BUTTON_INPUT) && get_button_state() == BTN_IS_RELEASED)
         {
-            
-            DEBUG_WARN ("BUTTON IS PRESSED");
-            //restart_pipeline ();
-            set_button_state (1);
+            if (m_last_tick == 0) m_last_tick = xTaskGetTickCount();
+            if (xTaskGetTickCount() - m_last_tick >= (uint32_t)100)
+            {
+                m_last_tick = xTaskGetTickCount();
+                DEBUG_WARN ("BUTTON IS PRESSED!\r\n");
+                //restart_pipeline ();
+                set_button_state(BTN_IS_PRESSED);
+            }
         }
-        else if (get_button_state())
+        else if (gpio_get_level(BUTTON_INPUT) == 1)
         {
-            set_button_state (0);
+            m_last_tick = xTaskGetTickCount();
+            set_button_state(BTN_IS_RELEASED);
         }
         vTaskDelay(50 / portTICK_PERIOD_MS);
-    }  
+    }   
 }
+
 void board_gpio_config (void)
 {
     gpio_config_t io_config = {};

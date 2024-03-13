@@ -45,7 +45,7 @@ static uint8_t m_turn_on_relay_in_fm_mode = 0;
 static uint8_t m_stream_url[128];
 static char m_alternative_imei[24];
 static char m_api_key[128] = APP_FLASH_DEFAULT_API_KEY;
-static uint8_t m_protocol_priority = 0;
+static uint8_t m_protocol_priority = APP_FLASH_PROTOCOL_V2_JSON;
 static char m_device_name[APP_FLASH_DEVICE_NAME_MAX_LENGTH+1];
 static app_flash_group_info_t m_group_info[APP_FLASH_MAX_GROUP_SUPPORT];
 static char m_last_stream_group_id[APP_FLASH_MAX_GROUP_NAME_LEN];
@@ -567,6 +567,27 @@ static esp_err_t node_nvs_write_u16(char *key, uint16_t value)
 void app_flash_write_u16(char *key, uint16_t value)
 {
     node_nvs_write_u16(key, value);
+}
+static char m_mac_string[16];
+char *get_mac_string(void)
+{
+    /* Get Unique ID */
+    uint8_t uid[6];
+    esp_err_t err = esp_efuse_mac_get_default(uid);
+    if (err == ESP_OK)
+    {
+        DEBUG_INFO("[ZIG] MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", 
+                uid[0], uid[1], uid[2], 
+                uid[3], uid[4], uid[5]);
+        sprintf (m_mac_string, "%02X%02X%02X%02X%02X%02XMAC", uid[0], uid[1], uid[2], 
+                uid[3], uid[4], uid[5]);
+        return m_mac_string;
+    }
+    else
+    {
+        DEBUG_WARN("[ZIG] MAC: ERROR\r\n");
+    }
+    return "";
 }
 
 /******************************************************************************************/
@@ -1187,10 +1208,11 @@ void app_flash_slave_nvs_read_params(char *paramName)
             ESP_LOGD(TAG, "\tTCP console: %u", m_tcp_console_enable);
             break;
         case ESP_ERR_NVS_NOT_FOUND:
-            m_tcp_console_enable = 0;
+        // TODO comment out
+            m_tcp_console_enable = 1;
             break;
         default:
-            m_tcp_console_enable = 0;
+            m_tcp_console_enable = 1;
             break;
         }
 
@@ -1205,7 +1227,9 @@ void app_flash_slave_nvs_read_params(char *paramName)
         case ESP_ERR_NVS_NOT_FOUND:
         default:
             ESP_LOGE(TAG, "\rError (%s) reading device name", esp_err_to_name(err));
-            sprintf(m_device_name, "%s", m_gsm_imei);
+            char *mactring = get_mac_string();
+            sprintf(m_device_name, "TROGIANG_%s", mactring);
+            ESP_LOGI(TAG, "\tDevice name: %s", m_device_name);
             break;
         }
 
@@ -1404,10 +1428,10 @@ void app_flash_slave_nvs_read_params(char *paramName)
             ESP_LOGI(TAG, "\tProtocol priority : %u", m_protocol_priority);
             break;
         case ESP_ERR_NVS_NOT_FOUND:
-            m_protocol_priority = 0;      // 0 = mqtt
+            m_protocol_priority = APP_FLASH_PROTOCOL_V2_JSON;      // 0 = mqtt
             break;
         default:
-            m_protocol_priority = 0;
+            m_protocol_priority = APP_FLASH_PROTOCOL_V2_JSON;
             break;
         }
 

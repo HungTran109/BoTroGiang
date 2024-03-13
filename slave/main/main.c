@@ -641,6 +641,22 @@ static void xSystem_timercb(void *timer)
     }
 }
 
+void hw_output_led_manager_poll(void)
+{
+    static bool logic_debug = false;
+    logic_debug = !logic_debug;
+    app_io_get_i2c_control_io_value()->BitName.LED_INTERNET = network_is_connected();
+    app_io_get_i2c_control_io_value()->BitName.LED_STREAM = stream_ele_info();
+    app_io_get_i2c_control_io_value()->BitName.LED_SDCARD = sdcard_is_exist();
+    app_io_get_i2c_control_io_value()->BitName.LED_DEBUG = logic_debug;
+    app_io_get_i2c_control_io_value()->BitName.LED_BLE = 0;
+    app_io_get_i2c_control_io_value()->BitName.LED_AUX = 0;
+    
+    Int_t ex_out;
+    ex_out.value = app_io_get_i2c_control_io_value()->Value;
+    app_audio_hal_i2c_master_write(I2C_GD32_SLAVE_ADDRESS7 << 1, ex_out.bytes, sizeof(app_io_i2c_t));
+}
+
 
 void slave_set_delay_turn_on_relay_prepare_stream(uint8_t value)
 {
@@ -663,6 +679,35 @@ void slave_report_info_now(void)
     m_mqtt_send_heartbeat_counter = HEARTBEAT_INTERVAL;
 }
 
+void gen_imei_by_mac_address(void)
+{
+    // if (strlen(app_flash_get_imei()) < 15)
+    // {
+    //     /* Get Unique ID */
+    //     uint8_t uid[6];
+    //     err = esp_efuse_mac_get_default(uid);
+    //     if (err == ESP_OK)
+    //     {
+    //         char alt_imei_string[16];
+    //         uint8_t mac1 = uid[0] % 9;
+    //         uint8_t mac2 = uid[1] % 9;
+    //         uint8_t mac3 = uid[2] % 9;
+    //         uint8_t mac4 = uid[3] % 9;
+    //         uint8_t mac5 = uid[4] % 9;
+    //         uint8_t mac6 = uid[5] % 9;
+    //         DEBUG_INFO("[ZIG] MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", 
+    //                 uid[0], uid[1], uid[2], 
+    //                 uid[3], uid[4], uid[5]);
+    //         sprintf (alt_imei_string, "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d", mac1, mac2, mac3, mac4, mac5, mac6, mac2
+    //                 mac1, );
+    //         app_flash_set_alt_imei(alt_imei_string);
+    //     }
+    //     else
+    //     {
+    //         DEBUG_WARN("[ZIG] MAC: ERROR\r\n");
+    //     }
+    // }
+}
 /******************************************************************************************/
 /**
  * @brief   : task quản lý hoạt động của module gsm
@@ -702,11 +747,11 @@ static void main_manager_task(void *arg)
         }
 
         network_manager_poll();
+        hw_output_led_manager_poll();
 
         /* ==================================== Quản lý MQTT connection ==========================================*/
         if (network_is_connected())
         {
-            set_led_internet_state(0);
             switch (app_mqtt_get_state())
             {
             case APP_MQTT_DISCONNECTED:
@@ -914,10 +959,6 @@ static void main_manager_task(void *arg)
             default:
                 break;
             }
-        }
-        else
-        {
-            set_led_internet_state(1);
         }
 
         if (m_mqtt_disconnected_timeout > NETWORK_ERROR_TIMEOUT_SEC)
@@ -1506,12 +1547,12 @@ static void main_manager_task(void *arg)
         //static bool logic_test = false;
         // app_io_i2c_t test;
         // set_PA_state (&test, logic_test);
-        //set_led_internet_state(logic_test);
+        //set_led_debug_state(logic_test);
 
         //logic_test = !logic_test;
 
         // set_PA_state(logic_test);
-        // logic_test = !logic_test;
+        //logic_test = !logic_test;
 
 
         vTaskDelay(1000 / portTICK_RATE_MS);

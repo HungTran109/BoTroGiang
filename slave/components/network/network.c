@@ -965,9 +965,9 @@ void network_manager_poll(void)
         EventBits_t network = xEventGroupGetBits(m_event_bit_network);
         if (network & BIT_ETH_DRIVER_ERROR)
         {
-            gpio_set_level(CONFIG_PHY_POWER_PIN, 0);
-            vTaskDelay(100/portTICK_RATE_MS);
-            gpio_set_level(CONFIG_PHY_POWER_PIN, 1);
+            // gpio_set_level(CONFIG_PHY_POWER_PIN, 0);
+            // vTaskDelay(100/portTICK_RATE_MS);
+            // gpio_set_level(CONFIG_PHY_POWER_PIN, 1);
             esp_eth_config_t config = ETH_DEFAULT_CONFIG(mac, phy);
             if (ESP_OK != esp_eth_driver_install(&config, &m_eth_handle))
             {

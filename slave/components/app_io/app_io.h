@@ -69,12 +69,22 @@
 #define GPIO_OUTPUT_SEL ((1ULL << SD_CS_GPIO_PIN) | (1ULL << SD_MOSI_GPIO_PIN))
 #define GPIO_INPUT_SEL ((1ULL << BUTTON_INPUT))
 
+#define I2C_GD32_SLAVE_ADDRESS7    (uint8_t)0x44
+
 typedef enum
 {
     APP_IO_MCU_PROTOCOL_STATE_UNKNOWN,
     APP_IO_MCU_PROTOCOL_STATE_STRING_FORMAT,
     APP_IO_MCU_PROTOCOL_STATE_MIN_PROTOCOL
 } app_io_protocol_type_t;
+
+/**
+ * @brief Button state
+ */
+typedef enum {
+    BTN_IS_PRESSED          = 0,
+    BTN_IS_RELEASED          = 1,
+} button_state_t;
 
 typedef union
 {
@@ -659,9 +669,21 @@ uint8_t app_io_is_power_lost(void);
  */
 void set_led_internet_state (uint8_t state);
 /**
+ * @brief           Set led Debug state
+ */
+void set_led_debug_state (uint8_t state);
+/**
  * @brief           Set EN_PA state
  */
 void set_PA_state (uint8_t state);
+/**
+ * @brief           Set all led state
+ */
+void set_led_state (app_io_i2c_t* info_to_send);
+/**
+ * @brief           Get all i2c io state
+ */
+app_io_i2c_t *app_io_get_i2c_control_io_value(void);
 
 void board_gpio_config (void);
 esp_err_t SD_card_config (void);
