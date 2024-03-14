@@ -1209,10 +1209,10 @@ void app_flash_slave_nvs_read_params(char *paramName)
             break;
         case ESP_ERR_NVS_NOT_FOUND:
         // TODO comment out
-            m_tcp_console_enable = 1;
+            m_tcp_console_enable = 0;
             break;
         default:
-            m_tcp_console_enable = 1;
+            m_tcp_console_enable = 0;
             break;
         }
 
