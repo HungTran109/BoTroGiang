@@ -2581,7 +2581,7 @@ void atth_mqtt_process_msq_id(cJSON* root, cJSON* message, uint32_t id)
             c_emergency = cJSON_GetObjectItem(message, "E");
             c_type = cJSON_GetObjectItem(message, "T");
             c_delay_turn_on_relay = cJSON_GetObjectItem(message, "DelayTurnOnRelay");
-            c_vol = cJSON_GetObjectItem(message, "Vol");
+            //c_vol = cJSON_GetObjectItem(message, "Vol");
             c_serial = cJSON_GetObjectItem(message, "Serials");
             if (c_info && cJSON_IsObject(c_info))
             {
@@ -2593,7 +2593,7 @@ void atth_mqtt_process_msq_id(cJSON* root, cJSON* message, uint32_t id)
             }
             
             if (c_master && c_is_all && c_info && c_priority && c_emergency 
-                && c_type && c_vol && c_uri && c_cmd)
+                && c_type && c_uri && c_cmd)
             {
                 bool do_stream = false;
                 DEBUG_INFO("Master [%d], serial %s, url %s\r\n", 
@@ -2663,8 +2663,8 @@ void atth_mqtt_process_msq_id(cJSON* root, cJSON* message, uint32_t id)
                         // app_audio_set_alt_stream_url(c_master->valuestring, c_uri->valuestring);
                         if (stream_if_higher_level(is_higher, false))
                         {
-                            if (c_vol->valueint > 0)
-                                app_audio_change_codec_vol(c_vol->valueint);
+                            // if (c_vol->valueint > 0)
+                            //     app_audio_change_codec_vol(c_vol->valueint);
                             return;
                         }
                         else
@@ -2685,7 +2685,7 @@ void atth_mqtt_process_msq_id(cJSON* root, cJSON* message, uint32_t id)
                                 slave_set_received_running_state_timeout(40); /* Sau 35s mà không start stream được thì reset cho nhanh */
                             }
 
-                            app_audio_change_codec_vol(c_vol->valueint);
+                            //app_audio_change_codec_vol(c_vol->valueint);
                             /* Đánh dấu dung lượng stream khi nhận lệnh -> so sánh sau 35 giây sau */
                             if (c_cmd->valueint == CMD_STREAM_START)
                             {

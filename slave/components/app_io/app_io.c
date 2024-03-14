@@ -31,6 +31,7 @@
 #include "i2c_bus.h"
 #include "board_pins_config.h"
 #include "app_audio.h"
+#include "board_def.h"
 
 #define ADC_NB_OF_CHANNEL 1
 #define DEFAULT_VREF 1100
@@ -1487,7 +1488,7 @@ void app_io_control_pa(uint8_t state)
         return;
     }
 
-    ESP_LOGD(TAG, "Turn PA_EN: %s", state ? "ON" : "OFF");
+    ESP_LOGI(TAG, "Turn PA_EN: %s", state ? "ON" : "OFF");
 
     if (state)
     {
