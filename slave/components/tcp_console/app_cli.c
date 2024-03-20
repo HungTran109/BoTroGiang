@@ -44,6 +44,7 @@
 #include "driver/gpio.h"
 #include "app_ota.h"
 #include "version_ctrl.h"
+#include "app_audio.h"
 
 static const char *TAG = "cli";
 
@@ -54,6 +55,7 @@ static int32_t cli_factory_reset(p_shell_context_t context, int32_t argc, char *
 static int32_t cli_get_imei(p_shell_context_t context, int32_t argc, char **argv);
 static int32_t cli_console_disable(p_shell_context_t context, int32_t argc, char **argv);
 static int32_t cli_show_fw_version(p_shell_context_t context, int32_t argc, char **argv);
+static int32_t restart_blue(p_shell_context_t context, int32_t argc, char **argv);
 
 static const shell_command_context_t cli_command_table[] =
 {
@@ -64,6 +66,7 @@ static const shell_command_context_t cli_command_table[] =
     {"version", "\tversion: Get firmware version\r\n", cli_show_fw_version, 0},
     {"factory", "\tfactory: Factory reset\r\n", cli_factory_reset, 0},
     {"consoleDisable", "\tconsoleDisable: disable tcp console\r\n", cli_console_disable, 0},
+    {"blue", "\trestart bt service\r\n", restart_blue, 0},
 };
 
 static shell_context_struct m_user_context;
@@ -165,6 +168,18 @@ static int32_t cli_get_imei(p_shell_context_t context, int32_t argc, char **argv
 static int32_t cli_console_disable(p_shell_context_t context, int32_t argc, char **argv)
 {
     app_flash_tcp_console_disable();
+    m_cb->printf("Terminate session\r\n");
+    vTaskDelay(2000);
+    m_cb->terminate();
+    return 0;
+}
+
+static int32_t restart_blue(p_shell_context_t context, int32_t argc, char **argv)
+{
+    if (true)//app_flash_is_btc_enable())
+    {
+        app_audio_restart_bluetooth();
+    }
     m_cb->printf("Terminate session\r\n");
     vTaskDelay(2000);
     m_cb->terminate();

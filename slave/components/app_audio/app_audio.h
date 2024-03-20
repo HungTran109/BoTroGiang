@@ -188,7 +188,7 @@ void app_audio_restart_pipeline(char *url);
 /**
  * @brief       Get audio state description in string
  */
-const char *app_audio_get_http_state_description(void);
+const char *app_audio_get_audio_state_description(void);
 
 /**
  * @brief       Get OPUS state
@@ -349,5 +349,7 @@ void app_audio_reset_force_turn_off_pa_when_link_404_not_found(void);
  * 
  */
 void start_sdcard_pipeline (void);
+
+void app_audio_restart_bluetooth(void);
 
 #endif /* APP_AUDIO_H */

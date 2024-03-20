@@ -2157,7 +2157,7 @@ char *build_mqtt_body(void)
      *		<Running Mode>,<FM Freq>,<Volume>,<MIC state>,<IO1 state>,<IO2 state>,<FM SNR>,<RSSI>,<RSSI in dBm>,<GPS lat>,<GPS lng>,
      *		<GSM CSQ>,<GSM network name>,<Tech>,<Band>,<Speaker state>,<MCU FwVersion>,PA level
      */
-    const char *state_str = app_audio_get_http_state_description();
+    const char *state_str = app_audio_get_audio_state_description();
     if (app_flash_get_operate_mode() == APP_AUDIO_OPERATION_MODE_NO_OPERATION)
     {
         state_str = "STOP";
@@ -2363,10 +2363,10 @@ int mqtt_publish_ttn_info(ping_message_t *ping)
                     app_sntp_get_timestamp(),
                     ping->serial);
 
-    index += sprintf(body+index, "{\"Id\":\"%s\",\"Sn\":\"%s\",\"Type\":%d,\"Ip\":\"%s\",\"Stmt\":\"%s\","
+    index += sprintf(body+index, "{\"Type\":%d,\"Ip\":\"%s\",\"Stmt\":\"%s\","
                     "\"Stlk\":\"%s\",\"Stst\":%d,\"Mic\":%d,\"Spk\":%d,\"Vl1\":%d,\"Vl2\":%d,"
                      "\"A\":%d,\"T\":%d,\"N\":\"%s\",\"P\":%u,\"O\":%d,\"L\":{\"V\":%s,\"K\":%s},\"Ver\":\"%s\",",
-                    ping->serial, ping->serial, ping->role, ping->ip, ping->streaming_master, 
+                    ping->role, ping->ip, ping->streaming_master, 
                     ping->streaming_link, ping->stream_state, ping->mic_on, ping->spk_on, ping->vol_music,  ping->vol_music,
                     ping->temp_air, ping->temp_air, ping->network, ping->play_time_of_day, ping->operating_mode, ping->gps_lat, ping->gps_long,
                     ping->app_version);

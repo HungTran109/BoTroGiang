@@ -579,7 +579,7 @@ char *get_mac_string(void)
         DEBUG_INFO("[ZIG] MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", 
                 uid[0], uid[1], uid[2], 
                 uid[3], uid[4], uid[5]);
-        sprintf (m_mac_string, "%02X%02X%02X%02X%02X%02XMAC", uid[0], uid[1], uid[2], 
+        sprintf (m_mac_string, "%02X%02X%02X%02X%02X%02X", uid[0], uid[1], uid[2], 
                 uid[3], uid[4], uid[5]);
         return m_mac_string;
     }
@@ -1209,10 +1209,10 @@ void app_flash_slave_nvs_read_params(char *paramName)
             break;
         case ESP_ERR_NVS_NOT_FOUND:
         // TODO comment out
-            m_tcp_console_enable = 0;
+            m_tcp_console_enable = 1;
             break;
         default:
-            m_tcp_console_enable = 0;
+            m_tcp_console_enable = 1;
             break;
         }
 

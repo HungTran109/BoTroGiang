@@ -6,7 +6,7 @@
 #include <math.h>
 #include "esp_system.h"
 
-#define __FIRMWARE_VERSION__ "SL1.9.8.4"
+#define __FIRMWARE_VERSION__ "TG0.0.1"
 
 // //typedef union
 // //{

@@ -535,7 +535,7 @@ void network_eth_restart(void)
     vTaskDelay(10);
     gpio_set_level(PIN_PHY_POWER, 1);
 }
-
+#ifndef BOARD_HW_DO_NOT_USE_GSM
 static void modem_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     switch (event_id)
@@ -644,6 +644,7 @@ static void modem_event_handler(void *event_handler_arg, esp_event_base_t event_
         break;
     }
 }
+#endif
 
 static bool m_wifi_enable = false;
 static bool do_reconnect_wifi = false;
@@ -843,7 +844,7 @@ void network_smart_cfg_start(void)
         ESP_ERROR_CHECK(esp_wifi_start());
     }
 }
-
+#ifndef BOARD_HW_DO_NOT_USE_GSM
 static void ec2x_start_task(void* arg)
 {
     esp_modem_dte_config_t modem_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
@@ -856,6 +857,7 @@ static void ec2x_start_task(void* arg)
     dce = ec2x_init(dte);
     vTaskDelete(NULL);
 }
+#endif
 
 eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
 eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
@@ -914,7 +916,6 @@ void network_initialize(network_wifi_info_t *info, network_event_cb_t on_ip_call
     mac_config.smi_mdio_gpio_num = PIN_SMI_MDIO;
     mac = esp_eth_mac_new_esp32(&mac_config);
     phy = esp_eth_phy_new_ip101(&phy_config);
-
 
     esp_eth_config_t config = ETH_DEFAULT_CONFIG(mac, phy);
     if (ESP_OK != esp_eth_driver_install(&config, &m_eth_handle))

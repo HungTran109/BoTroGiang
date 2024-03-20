@@ -1027,7 +1027,7 @@ static void main_manager_task(void *arg)
                     DEBUG_INFO("[ZIG] MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", 
                             uid[0], uid[1], uid[2], 
                             uid[3], uid[4], uid[5]);
-                    sprintf (mac_string, "%02X%02X%02X%02X%02X%02XMAC", uid[0], uid[1], uid[2], 
+                    sprintf (mac_string, "TRG%02X%02X%02X%02X%02X%02X", uid[0], uid[1], uid[2], 
                             uid[3], uid[4], uid[5]);
                     app_flash_set_alt_imei(mac_string);
                 }
@@ -2306,10 +2306,12 @@ void atth_mqtt_process_msq_id(cJSON* root, cJSON* message, uint32_t id)
                             case CONFIG_MQTT_SRV:
                             {
                                 DEBUG_INFO("Config mqtt broker\r\n");
-                                cJSON *c_mqtt_server = cJSON_GetObjectItem(c_value, "url");
-                                cJSON *c_mqtt_user = cJSON_GetObjectItem(c_value, "usr");
-                                cJSON *c_mqtt_pass = cJSON_GetObjectItem(c_value, "pw");
-                                cJSON *c_mqtt_port = cJSON_GetObjectItem(c_value, "port");
+                                cJSON *tmp_mqtt = cJSON_Parse(c_value->valuestring);
+                                cJSON *c_mqtt_server = cJSON_GetObjectItem(tmp_mqtt, "url");
+                                cJSON *c_mqtt_user = cJSON_GetObjectItem(tmp_mqtt, "usr");
+                                cJSON *c_mqtt_pass = cJSON_GetObjectItem(tmp_mqtt, "pw");
+                                cJSON *c_mqtt_port = cJSON_GetObjectItem(tmp_mqtt, "port");
+                                
                                 if (c_mqtt_server && c_mqtt_user && c_mqtt_pass && c_mqtt_port
                                     && cJSON_IsString(c_mqtt_server)
                                     && cJSON_IsString(c_mqtt_user)
@@ -2329,7 +2331,7 @@ void atth_mqtt_process_msq_id(cJSON* root, cJSON* message, uint32_t id)
                                     }
                                     else
                                     {
-                                        sprintf(url, "%s:%u", c_mqtt_server->valuestring, c_mqtt_port->valueint);
+                                        sprintf(url, "mqtt://%s:%u", c_mqtt_server->valuestring, c_mqtt_port->valueint);
                                     }
 
 
@@ -2374,6 +2376,15 @@ void atth_mqtt_process_msq_id(cJSON* root, cJSON* message, uint32_t id)
                                         DEBUG_INFO("Same password\r\n");
                                     }
                                     send_cfg = true;
+                                }
+                                else
+                                {
+                                    DEBUG_INFO("Config mqtt broker fail!r\n");
+                                }
+
+                                if (tmp_mqtt)
+                                {
+                                    cJSON_Delete(tmp_mqtt);
                                 }
                             }
                                 break;
@@ -4104,7 +4115,7 @@ void app_main(void)
         DEBUG_INFO("[ZIG] MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", 
                 uid[0], uid[1], uid[2], 
                 uid[3], uid[4], uid[5]);
-        sprintf (mac_string, "%02X%02X%02X%02X%02X%02XMAC", uid[0], uid[1], uid[2], 
+        sprintf (mac_string, "TRG%02X%02X%02X%02X%02X%02X", uid[0], uid[1], uid[2], 
                 uid[3], uid[4], uid[5]);
     }
     else

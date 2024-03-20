@@ -29,12 +29,15 @@
 #include "filter_resample.h"
 #include "sdcard_list.h"
 #include "sdcard_scan.h"
+#include "esp_bt.h"
+
+#include "bluetooth_service.h"
+
 
 //static const char *TAG = "app_audio";
 
 // static esp_periph_handle_t m_button_handle;
 static esp_periph_set_handle_t m_periph_set_handle;
-//static esp_periph_handle_t bt_periph = NULL;
 audio_event_iface_handle_t m_evt;
 static audio_board_handle_t m_board_handle = NULL;
 static uint8_t m_output_vol = 70;
@@ -42,9 +45,12 @@ static uint8_t m_output_vol = 70;
 /* Variables for audio streamer */
 static audio_pipeline_handle_t m_pipeline;
 static audio_element_handle_t m_http_stream_reader, m_i2s_stream_writer;
-static audio_element_handle_t m_opus_decoder;
+static audio_element_handle_t m_opus_decoder, m_bt_stream_reader;
 static uint8_t m_auto_restart_stream_retries_number = 0;
 static app_audio_codec_mode_t m_codec_mode;
+
+TimerHandle_t m_timer_btc_limit_stream_time = NULL;
+static esp_periph_handle_t m_bt_periph;
 // static audio_pipeline_handle_t pipeline_play = NULL;
 
 // playlist_operator_handle_t sdcard_list_handle = NULL;
@@ -89,6 +95,7 @@ static uint8_t m_streaming_step = APP_AUDIO_STREAM_NOT_INIT;
 static char m_last_url_link_404[256];
 static uint32_t m_delay_force_turn_off_pa_after_404 = 0;
 static bool m_stream_url_404 = false;
+static bool m_btc_connected = false;
 
 char *app_audio_get_last_link_404(void)
 {
@@ -279,6 +286,11 @@ uint8_t app_audio_is_http_audio_stream_running(void)
         }
     }
     return retval;
+}
+
+bool app_audio_is_bluetooth_running(void)
+{
+    return m_btc_connected;
 }
 
 
@@ -711,8 +723,12 @@ void app_audio_restart_pipeline(char *url)
     audio_pipeline_run(m_pipeline);
 }
 
-const char *app_audio_get_http_state_description(void)
+const char *app_audio_get_audio_state_description(void)
 {
+    if (app_audio_is_bluetooth_running())
+    {
+        return "BLUETOOTH";
+    }
     audio_element_state_t el_http_state = audio_element_get_state(m_http_stream_reader);
     const char *state_str = m_ael_state_des[el_http_state];
     return state_str;
@@ -1154,7 +1170,156 @@ bool app_audio_wait_for_event(uint32_t timeout_ms)
             slave_allow_http_element_monitor_downloaded_data_in_streaming_state(false); 
         }
     }
+
+    // Bluetooth classic event
+    if (true)//app_flash_is_btc_enable())
+    {
+        if (msg.source_type == PERIPH_ID_BLUETOOTH && msg.source == (void *)m_bt_periph)
+        {
+            if (msg.cmd == PERIPH_BLUETOOTH_CONNECTED) 
+            {
+                DEBUG_WARN("Bluetooth connected\r\n");
+                if (app_audio_is_http_audio_stream_running())
+                {
+                    app_audio_simple_terminate_pipeline();
+                    app_audio_set_streaming_logic_step(APP_AUDIO_STREAM_STOPPED);
+                    vTaskDelay(5000);
+                }
+                slave_allow_http_element_monitor_downloaded_data_in_streaming_state(false);
+                audio_pipeline_breakup_elements(m_pipeline, m_opus_decoder);
+                audio_pipeline_relink(m_pipeline, (const char *[]) {"bt_reader", "i2s"}, 2);
+                audio_pipeline_set_listener(m_pipeline, m_evt);
+                audio_pipeline_run(m_pipeline);
+                audio_pipeline_resume(m_pipeline);
+                app_audio_change_codec_to_internet_mode();
+                m_btc_connected = true;
+                // app_audio_change_codec_vol(90);
+            }
+            else if (msg.cmd == PERIPH_BLUETOOTH_DISCONNECTED) 
+            {
+                DEBUG_WARN("Bluetooth disconnected\r\n");
+                audio_pipeline_breakup_elements(m_pipeline, m_bt_stream_reader);
+                audio_pipeline_relink(m_pipeline, (const char *[]){"http", "opus", "i2s"}, 3);
+                audio_pipeline_set_listener(m_pipeline, m_evt);
+                audio_pipeline_run(m_pipeline);
+                audio_pipeline_resume(m_pipeline);
+                app_audio_change_codec_to_internet_mode();
+                // app_audio_change_codec_vol(app_flash_get_volume());
+                m_btc_connected = false;
+            }
+            else if (msg.cmd == PERIPH_BLUETOOTH_AUDIO_STARTED)
+            {
+                DEBUG_WARN("Bluetooth started\r\n");
+                /* Điều khiển bật loa ngoài khi stream thực sự chạy */
+                if (!app_io_is_switch_codec_on())
+                {
+                    app_io_control_relay_audio_output(APP_AUDIO_OPERATION_MODE_INTERNET);
+                    if (m_delay_force_turn_off_pa_after_404 > 0)
+                    {
+                        m_delay_force_turn_off_pa_after_404 = 0;
+                    }
+                    app_io_control_pa(APP_IO_PA_ON);
+                }
+            }
+            else if (msg.cmd == PERIPH_BLUETOOTH_AUDIO_SUSPENDED)
+            {
+                DEBUG_WARN("Bluetooth suspended\r\n");
+                /* Điều khiển bật loa ngoài khi stream thực sự chạy */
+                app_io_control_pa(APP_IO_PA_OFF);
+            }
+            else if (msg.cmd == PERIPH_BLUETOOTH_AUDIO_REPORT_STREAM_RUNNING)
+            {
+                slave_allow_http_element_monitor_downloaded_data_in_streaming_state(false);
+                DEBUG_WARN("Bluetooth streamming\r\n");
+                // app_io_control_relay_audio_output(APP_AUDIO_OPERATION_MODE_INTERNET);
+                /* Điều khiển bật loa ngoài khi stream thực sự chạy */
+                app_io_control_relay_audio_output(APP_AUDIO_OPERATION_MODE_INTERNET);
+                if (m_delay_force_turn_off_pa_after_404 > 0)
+                {
+                    m_delay_force_turn_off_pa_after_404 = 0;
+                }
+                if (app_io_is_pa_off())
+                {
+                    app_io_control_pa(APP_IO_PA_ON);
+                }
+            }    
+            else if (msg.cmd == PERIPH_BLUETOOTH_AUDIO_REPORT_SAMPLE_RATE)
+            {
+                int sample_rate = (int)msg.data;
+                DEBUG_WARN("Bluetooth sample rate %u\r\n", sample_rate);
+                i2s_stream_set_clk(m_i2s_stream_writer, 
+                            sample_rate, 
+                            16, 
+                            2);
+
+                // app_io_control_relay_audio_output(APP_AUDIO_OPERATION_MODE_INTERNET);
+                // /* Điều khiển bật loa ngoài khi stream thực sự chạy */
+                app_io_control_relay_audio_output(APP_AUDIO_OPERATION_MODE_INTERNET);
+                if (m_delay_force_turn_off_pa_after_404 > 0)
+                {
+                    m_delay_force_turn_off_pa_after_404 = 0;
+                }
+                if (app_io_is_pa_off())
+                {
+                    app_io_control_pa(APP_IO_PA_ON);
+                }
+                mqtt_publish_message("DBG", "Sample rate %u", sample_rate);
+            }  
+        }
+    }
+
     return true;
+}
+
+void bluetooth_idle_timeout_cb()
+{
+    // vTaskDelay(10);
+    // sys_do_restarting();
+    // while (1) vTaskDelay(1000);
+}
+
+static audio_element_handle_t bluetooth_audio_start()
+{
+    if (m_timer_btc_limit_stream_time == NULL)
+    {
+        m_timer_btc_limit_stream_time = xTimerCreate("btc_timer",     
+                                                    600 * 1000,//CONFIG_BTC_AUDIO_SUSPEND_TIME * 1000, // seconds
+                                                    0,                      // no auto reload
+                                                    (void*) 0,
+                                                    &bluetooth_idle_timeout_cb
+                                                );
+                                                
+        xTimerStart(m_timer_btc_limit_stream_time, 1); 
+        assert(m_timer_btc_limit_stream_time);
+    }
+
+    char bt_name[48];
+    uint8_t uid[6];
+    esp_efuse_mac_get_default(uid);
+
+    sprintf(bt_name, "TRG-%02X%02X%02X%02X%02X%02X", 
+                    uid[0], uid[1], uid[2], uid[3], uid[4], uid[5]);
+
+    bluetooth_service_cfg_t bt_cfg = 
+    {
+        .device_name = bt_name,
+        .mode = BLUETOOTH_A2DP_SINK,
+    };
+    bluetooth_service_start(&bt_cfg);
+
+    audio_element_handle_t tmp = bluetooth_service_create_stream();
+    return tmp;
+}
+void app_audio_restart_bluetooth(void)
+{
+    esp_periph_stop(m_bt_periph);
+    //m_bt_stream_reader->stream = NULL;
+    m_bt_stream_reader = NULL;
+    bluetooth_service_destroy();
+
+    m_bt_stream_reader = bluetooth_audio_start();
+    // m_bt_periph = bluetooth_service_create_periph();
+    // esp_periph_start(m_periph_set_handle, m_bt_periph);
 }
 
 void app_audio_start(void)
@@ -1221,6 +1386,13 @@ void app_audio_start(void)
     audio_pipeline_register(m_pipeline, m_i2s_stream_writer, "i2s");
     audio_pipeline_register(m_pipeline, m_opus_decoder, "opus");
 
+    if (true)//app_flash_is_btc_enable())
+    {
+        m_bt_stream_reader = bluetooth_audio_start();
+        m_bt_periph = bluetooth_service_create_periph();
+        audio_pipeline_register(m_pipeline, m_bt_stream_reader, "bt_reader");
+        esp_periph_start(m_periph_set_handle, m_bt_periph);
+    }
     // default is opus
     audio_pipeline_link(m_pipeline, (const char *[]){"http", "opus", "i2s"}, 3);
 
@@ -1241,181 +1413,12 @@ void app_audio_start(void)
     {
         m_auto_restart_stream_retries_number = 2;
     }
+
+    if (true)//app_flash_is_btc_enable())
+    {
+        audio_element_run(m_bt_stream_reader);
+    }
 }
-/*   BLUETOOTH    */
-// void start_pipeline_a2dp_sink_stream(void)
-// {
-//     audio_pipeline_handle_t pipeline;
-//     audio_element_handle_t bt_stream_reader, i2s_stream_writer;
-
-//     // esp_err_t err = nvs_flash_init();
-//     // if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
-//     //     // NVS partition was truncated and needs to be erased
-//     //     // Retry nvs_flash_init
-//     //     ESP_ERROR_CHECK(nvs_flash_erase());
-//     //     err = nvs_flash_init();
-//     // }
-
-//     esp_log_level_set("*", ESP_LOG_INFO);
-//     esp_log_level_set(TAG, ESP_LOG_DEBUG);
-
-//     ESP_LOGI(TAG, "[ 1 ] Init Bluetooth");
-//     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
-//     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-//     ESP_ERROR_CHECK(esp_bt_controller_init(&bt_cfg));
-//     ESP_ERROR_CHECK(esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT));
-//     ESP_ERROR_CHECK(esp_bluedroid_init());
-//     ESP_ERROR_CHECK(esp_bluedroid_enable());
-
-//     esp_bt_dev_set_device_name("ESP_SINK_STREAM_DEMO");
-
-// #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0))
-//     esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
-// #else
-//     esp_bt_gap_set_scan_mode(ESP_BT_SCAN_MODE_CONNECTABLE_DISCOVERABLE);
-// #endif
-
-//     ESP_LOGI(TAG, "[ 2 ] Start codec chip");
-//     audio_board_handle_t board_handle = audio_board_init(50);
-//     audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
-
-//     ESP_LOGI(TAG, "[ 3 ] Create audio pipeline for playback");
-//     audio_pipeline_cfg_t pipeline_cfg = DEFAULT_AUDIO_PIPELINE_CONFIG();
-//     pipeline = audio_pipeline_init(&pipeline_cfg);
-
-//     ESP_LOGI(TAG, "[4] Create i2s stream to write data to codec chip");
-//     i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT();
-//     i2s_cfg.type = AUDIO_STREAM_WRITER;
-//     i2s_stream_writer = i2s_stream_init(&i2s_cfg);
-
-//     ESP_LOGI(TAG, "[4.1] Get Bluetooth stream");
-//     a2dp_stream_config_t a2dp_config = {
-//         .type = AUDIO_STREAM_READER,
-//         .user_callback = {0},
-// #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0))
-//         .audio_hal = board_handle->audio_hal,
-// #endif
-//     };
-//     bt_stream_reader = a2dp_stream_init(&a2dp_config);
-
-//     ESP_LOGI(TAG, "[4.2] Register all elements to audio pipeline");
-//     audio_pipeline_register(pipeline, bt_stream_reader, "bt");
-//     audio_pipeline_register(pipeline, i2s_stream_writer, "i2s");
-
-//     ESP_LOGI(TAG, "[4.3] Link it together [Bluetooth]-->bt_stream_reader-->i2s_stream_writer-->[codec_chip]");
-// #if (CONFIG_ESP_LYRATD_MSC_V2_1_BOARD || CONFIG_ESP_LYRATD_MSC_V2_2_BOARD)
-//     rsp_filter_cfg_t rsp_cfg = DEFAULT_RESAMPLE_FILTER_CONFIG();
-//     rsp_cfg.src_rate = 44100;
-//     rsp_cfg.src_ch = 2;
-//     rsp_cfg.dest_rate = 48000;
-//     rsp_cfg.dest_ch = 2;
-//     rsp_cfg.task_prio = 19;
-//     audio_element_handle_t filter = rsp_filter_init(&rsp_cfg);
-//     audio_pipeline_register(pipeline, filter, "filter");
-//     i2s_stream_set_clk(i2s_stream_writer, 48000, 16, 2);
-//     const char *link_tag[3] = {"bt", "filter", "i2s"};
-//     audio_pipeline_link(pipeline, &link_tag[0], 3);
-// #else
-//     const char *link_tag[2] = {"bt", "i2s"};
-//     audio_pipeline_link(pipeline, &link_tag[0], 2);
-// #endif
-
-//     ESP_LOGI(TAG, "[ 5 ] Initialize peripherals");
-//     esp_periph_config_t periph_cfg = DEFAULT_ESP_PERIPH_SET_CONFIG();
-//     esp_periph_set_handle_t set = esp_periph_set_init(&periph_cfg);
-//     audio_board_key_init(set);
-
-//     // ESP_LOGI(TAG, "[ 5.1 ] Create and start input key service");
-//     // input_key_service_info_t input_key_info[] = INPUT_KEY_DEFAULT_INFO();
-//     // input_key_service_cfg_t input_cfg = INPUT_KEY_SERVICE_DEFAULT_CONFIG();
-//     // input_cfg.handle = set;
-//     //periph_service_handle_t input_ser = input_key_service_create(&input_cfg);
-//     //input_key_service_add_key(input_ser, input_key_info, INPUT_KEY_NUM);
-//     //periph_service_set_callback(input_ser, input_key_service_cb, NULL);
-
-//     ESP_LOGI(TAG, "[5.2] Create Bluetooth peripheral");
-//     bt_periph = bt_create_periph();
-
-//     ESP_LOGI(TAG, "[5.3] Start all peripherals");
-//     esp_periph_start(set, bt_periph);
-
-//     ESP_LOGI(TAG, "[ 6 ] Set up  event listener");
-//     audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
-//     audio_event_iface_handle_t evt = audio_event_iface_init(&evt_cfg);
-
-//     ESP_LOGI(TAG, "[6.1] Listening event from all elements of pipeline");
-//     audio_pipeline_set_listener(pipeline, evt);
-
-//     ESP_LOGI(TAG, "[ 7 ] Start audio_pipeline");
-//     audio_pipeline_run(pipeline);
-
-//     ESP_LOGI(TAG, "[ 8 ] Listen for all pipeline events");
-//     while (1) {
-//         audio_event_iface_msg_t msg;
-//         esp_err_t ret = audio_event_iface_listen(evt, &msg, portMAX_DELAY);
-//         if (ret != ESP_OK) {
-//             ESP_LOGE(TAG, "[ * ] Event interface error : %d", ret);
-//             continue;
-//         }
-
-//         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.source == (void *) bt_stream_reader
-//             && msg.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO) {
-//             audio_element_info_t music_info = {0};
-//             audio_element_getinfo(bt_stream_reader, &music_info);
-
-//             ESP_LOGI(TAG, "[ * ] Receive music info from Bluetooth, sample_rates=%d, bits=%d, ch=%d",
-//                      music_info.sample_rates, music_info.bits, music_info.channels);
-
-//             audio_element_setinfo(i2s_stream_writer, &music_info);
-// #if (CONFIG_ESP_LYRATD_MSC_V2_1_BOARD || CONFIG_ESP_LYRATD_MSC_V2_2_BOARD)
-// #else
-//             i2s_stream_set_clk(i2s_stream_writer, music_info.sample_rates, music_info.bits, music_info.channels);
-// #endif
-//             continue;
-//         }
-
-//         /* Stop when the last pipeline element (i2s_stream_writer in this case) receives stop event */
-//         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.source == (void *) i2s_stream_writer
-//             && msg.cmd == AEL_MSG_CMD_REPORT_STATUS
-//             && (((int)msg.data == AEL_STATUS_STATE_STOPPED) || ((int)msg.data == AEL_STATUS_STATE_FINISHED))) {
-//             ESP_LOGW(TAG, "[ * ] Stop event received");
-//             break;
-//         }
-//     }
-
-//     ESP_LOGI(TAG, "[ 9 ] Stop audio_pipeline");
-//     audio_pipeline_stop(pipeline);
-//     audio_pipeline_wait_for_stop(pipeline);
-//     audio_pipeline_terminate(pipeline);
-
-//     /* Terminate the pipeline before removing the listener */
-//     audio_pipeline_remove_listener(pipeline);
-
-//     /* Stop all periph before removing the listener */
-//     esp_periph_set_stop_all(set);
-//     audio_event_iface_remove_listener(esp_periph_set_get_event_iface(set), evt);
-
-//     /* Make sure audio_pipeline_remove_listener & audio_event_iface_remove_listener are called before destroying event_iface */
-//     audio_event_iface_destroy(evt);
-
-//     /* Release all resources */
-//     audio_pipeline_unregister(pipeline, bt_stream_reader);
-//     audio_pipeline_unregister(pipeline, i2s_stream_writer);
-// #if (CONFIG_ESP_LYRATD_MSC_V2_1_BOARD || CONFIG_ESP_LYRATD_MSC_V2_2_BOARD)
-//     audio_pipeline_unregister(pipeline, filter);
-//     audio_element_deinit(filter);
-// #endif
-//     audio_pipeline_deinit(pipeline);
-//     audio_element_deinit(bt_stream_reader);
-//     audio_element_deinit(i2s_stream_writer);
-//     esp_periph_set_destroy(set);
-//     //periph_service_destroy(input_ser);
-//     esp_bluedroid_disable();
-//     esp_bluedroid_deinit();
-//     esp_bt_controller_disable();
-//     esp_bt_controller_deinit();
-//     esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
-// }
 /*   SD CARD    */
 // static audio_element_handle_t create_mp3_decoder()
 // {
