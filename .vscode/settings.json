@@ -12,6 +12,14 @@
         "app_debug.h": "c",
         "bt_keycontrol.h": "c",
         "sdcard_list.h": "c",
-        "sdcard_scan.h": "c"
+        "sdcard_scan.h": "c",
+        "version_ctrl.h": "c",
+        "kt0656m.h": "c",
+        "periph_ctrl.h": "c",
+        "app_uhf.h": "c",
+        "esp_err.h": "c",
+        "stdbool.h": "c",
+        "random": "c",
+        "board_pins_config.h": "c"
     }
 }

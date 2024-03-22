@@ -1159,37 +1159,6 @@ static void on_gd32_frame_callback(void *context, min_msg_t *frame)
     }
 }
 
-typedef struct {
-    i2c_config_t i2c_conf;   /*!<I2C bus parameters*/
-    i2c_port_t i2c_port;     /*!<I2C port number */
-} i2c_bus_t;
-static i2c_bus_handle_t i2c_handle = NULL;
-static esp_err_t __attribute__((unused)) i2c_master_write_slave(i2c_port_t i2c_num, uint8_t *data_wr, size_t size)
-{
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (I2C_GD32_SLAVE_ADDRESS7 << 1) | WRITE_BIT, ACK_CHECK_EN);
-    i2c_master_write(cmd, data_wr, size, ACK_CHECK_EN);
-    i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin(i2c_num, cmd, 5000 / portTICK_PERIOD_MS);
-    i2c_cmd_link_delete(cmd);
-    return ret;
-}
-int app_i2c_config()
-{
-    int i2c_master_port = I2C_NUM_1;
-    i2c_config_t conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = I2C_MASTER_SDA_IO,
-        .scl_io_num = I2C_MASTER_SCL_IO,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = I2C_MASTER_FREQ_HZ,
-    };
-    i2c_param_config(i2c_master_port, &conf);
-    return i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
-}
-
 void app_io_initialize(void)
 {
     if (!m_sem_protect_gd32_uart)

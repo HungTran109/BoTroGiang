@@ -3,6 +3,8 @@
 
 #include "stdint.h"
 #include "stdbool.h"
+#include "kt0656m.h"
+#include "app_uhf.h"
 
 /**
  * @brief       Get modem dce
@@ -242,5 +244,7 @@ void slave_on_hls_finish_track_cb();
 void change_mode_cmd(char *mode);
 
 void do_factory_reset(void);
+
+uint32_t sys_get_10ms(void);
 
 #endif /* MAIN_H */

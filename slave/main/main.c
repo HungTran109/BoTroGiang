@@ -178,6 +178,7 @@ static uint8_t m_timeout_http_stream_check = 0;
 static uint32_t sys_tick_counter = 0;
 uint32_t last_sys_tick_counter = 0;
 static uint8_t m_main_task_hangout = 0;
+static uint32_t m_sys_tick_10ms = 0;
 // uint8_t HW_VERSION = 3;
 static uint32_t m_auto_terminate_pipeline = 0;
 static uint32_t m_total_streaming_received = 0;
@@ -606,6 +607,7 @@ static void xSystem_timercb(void *timer)
 {
     static uint8_t timeout_100ms = 0;
 
+    m_sys_tick_10ms++;
     timeout_100ms++;
     if (timeout_100ms >= 100)
     {
@@ -708,6 +710,11 @@ void gen_imei_by_mac_address(void)
     //     }
     // }
 }
+
+uint32_t sys_get_10ms(void)
+{
+    return m_sys_tick_10ms;
+}
 /******************************************************************************************/
 /**
  * @brief   : task quản lý hoạt động của module gsm
@@ -747,7 +754,11 @@ static void main_manager_task(void *arg)
         }
 
         network_manager_poll();
-        hw_output_led_manager_poll();
+        //hw_output_led_manager_poll();
+
+#ifdef BOARD_HW_HAS_UHF
+        app_uhf_task();
+#endif       
 
         /* ==================================== Quản lý MQTT connection ==========================================*/
         if (network_is_connected())
